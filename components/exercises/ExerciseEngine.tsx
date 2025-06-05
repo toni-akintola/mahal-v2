@@ -170,28 +170,28 @@ export function ExerciseEngine({
   const renderExercise = () => {
     if (showFeedback && lastResult) {
       return (
-        <div className="text-center py-8">
+        <div className="text-center py-6 md:py-8">
           <div
-            className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
+            className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 ${
               lastResult.correct ? "bg-green-500" : "bg-red-500"
             }`}
           >
             {lastResult.correct ? (
-              <CheckCircle className="w-10 h-10 text-white" />
+              <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-white" />
             ) : (
-              <XCircle className="w-10 h-10 text-white" />
+              <XCircle className="w-8 h-8 md:w-10 md:h-10 text-white" />
             )}
           </div>
 
           <h3
-            className={`text-2xl font-bold mb-2 ${
+            className={`text-xl md:text-2xl font-bold mb-2 ${
               lastResult.correct ? "text-green-400" : "text-red-400"
             }`}
           >
             {lastResult.correct ? "Correct!" : "Not quite right"}
           </h3>
 
-          <p className="text-muted-foreground mb-4">
+          <p className="text-muted-foreground mb-3 md:mb-4 text-sm md:text-base px-4">
             {lastResult.correct
               ? `Great job! +${lastResult.xpEarned} XP`
               : `The correct answer was: ${lastResult.correctAnswer}`}
@@ -276,27 +276,27 @@ export function ExerciseEngine({
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-card border-b border-border px-4 py-4">
+      <div className="bg-card border-b border-border px-4 py-3 md:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <GameButton variant="ghost" onClick={onExit} className="p-2">
-              <ArrowRight className="w-5 h-5 rotate-180" />
+          <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+            <GameButton variant="ghost" onClick={onExit} className="p-1.5 md:p-2 flex-shrink-0">
+              <ArrowRight className="w-4 h-4 md:w-5 md:h-5 rotate-180" />
             </GameButton>
-            <div className="flex-1">
-              <Progress value={progress} className="h-3 w-64" />
-              <p className="text-sm text-muted-foreground mt-1">
+            <div className="flex-1 min-w-0">
+              <Progress value={progress} className="h-2 md:h-3 w-full max-w-64" />
+              <p className="text-xs md:text-sm text-muted-foreground mt-1">
                 {currentExerciseIndex + 1} of {exercises.length}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Lives:</span>
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+            <div className="flex items-center gap-1 md:gap-2">
+              <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">Lives:</span>
               {[...Array(2)].map((_, i) => (
                 <Heart
                   key={i}
-                  className={`w-6 h-6 ${
+                  className={`w-5 h-5 md:w-6 md:h-6 ${
                     i < lives
                       ? "fill-red-500 text-red-500"
                       : "text-muted-foreground"
@@ -306,9 +306,10 @@ export function ExerciseEngine({
             </div>
 
             {streak > 0 && (
-              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                <Star className="w-3 h-3 mr-1" />
-                {streak} streak
+              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
+                <Star className="w-2.5 h-2.5 md:w-3 md:h-3 mr-1" />
+                <span className="hidden sm:inline">{streak} streak</span>
+                <span className="sm:hidden">{streak}</span>
               </Badge>
             )}
           </div>
@@ -316,35 +317,36 @@ export function ExerciseEngine({
       </div>
 
       {/* Exercise Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <GameCard className="min-h-96">
+      <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">
+        <GameCard className="min-h-80 md:min-h-96">
           <GameCardHeader>
-            <GameCardTitle className="flex items-center justify-between">
+            <GameCardTitle className="flex items-center justify-between text-sm md:text-base">
               <span className="capitalize">
-                {currentExercise.type} Exercise
+                <span className="hidden sm:inline">{currentExercise.type} Exercise</span>
+                <span className="sm:hidden">{currentExercise.type}</span>
               </span>
-              <Badge variant="outline">{currentExercise.xp} XP</Badge>
+              <Badge variant="outline" className="text-xs">{currentExercise.xp} XP</Badge>
             </GameCardTitle>
           </GameCardHeader>
-          <GameCardContent className="p-8">{renderExercise()}</GameCardContent>
+          <GameCardContent className="p-4 md:p-8">{renderExercise()}</GameCardContent>
         </GameCard>
       </div>
 
       {/* Failure Dialog */}
       <Dialog open={showFailureDialog} onOpenChange={setShowFailureDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md mx-4">
           <DialogHeader className="text-center">
-            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-white" />
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
+              <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <DialogTitle className="text-xl">Exercise Failed</DialogTitle>
-            <DialogDescription className="text-base">
+            <DialogTitle className="text-lg md:text-xl">Exercise Failed</DialogTitle>
+            <DialogDescription className="text-sm md:text-base">
               You&apos;ve run out of lives! Don&apos;t worry - practice makes
               perfect. Review the lesson material and try again when you&apos;re
               ready.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex gap-2 sm:gap-0">
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <GameButton
               variant="outline"
               onClick={() => {

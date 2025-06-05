@@ -274,94 +274,101 @@ export default function MahalDashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-card border-b border-border px-4 py-4 sticky top-0 z-40">
+      <div className="bg-card border-b border-border px-4 py-3 md:py-4 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <Link href="/">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">🇵🇭</span>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-base md:text-lg">🇵🇭</span>
               </div>
             </Link>
-            <h1 className="text-2xl font-semibold text-foreground">Mahal</h1>
+            <h1 className="text-xl md:text-2xl font-semibold text-foreground">Mahal</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <StreakCounter value={userStats.currentStreak} />
             <XPCounter value={`${userStats.totalXp} XP`} />
             <Badge
               variant="outline"
-              className="font-medium text-muted-foreground border-border"
+              className="font-medium text-muted-foreground border-border text-xs md:text-sm"
             >
-              Level {userStats.level}
+              <span className="hidden sm:inline">Level </span>
+              <span className="sm:hidden">L</span>
+              {userStats.level}
             </Badge>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-4 md:py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 bg-card rounded-2xl p-1 shadow-sm border border-border">
             <TabsTrigger
               value="lessons"
-              className="flex items-center gap-2 rounded-xl"
+              className="flex items-center gap-1 md:gap-2 rounded-xl text-xs md:text-sm"
             >
-              <BookOpen className="w-4 h-4" />
-              Lessons
+              <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Lessons</span>
+              <span className="sm:hidden">Learn</span>
             </TabsTrigger>
             <TabsTrigger
               value="achievements"
-              className="flex items-center gap-2 rounded-xl"
+              className="flex items-center gap-1 md:gap-2 rounded-xl text-xs md:text-sm"
             >
-              <Award className="w-4 h-4" />
-              Achievements
+              <Award className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Achievements</span>
+              <span className="sm:hidden">Awards</span>
             </TabsTrigger>
             <TabsTrigger
               value="leaderboard"
-              className="flex items-center gap-2 rounded-xl"
+              className="flex items-center gap-1 md:gap-2 rounded-xl text-xs md:text-sm"
             >
-              <Crown className="w-4 h-4" />
-              Leaderboard
+              <Crown className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Leaderboard</span>
+              <span className="sm:hidden">Ranks</span>
             </TabsTrigger>
             <TabsTrigger
               value="social"
-              className="flex items-center gap-2 rounded-xl"
+              className="flex items-center gap-1 md:gap-2 rounded-xl text-xs md:text-sm"
             >
-              <Users className="w-4 h-4" />
-              Social
+              <Users className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Social</span>
+              <span className="sm:hidden">Friends</span>
             </TabsTrigger>
             <TabsTrigger
               value="help"
-              className="flex items-center gap-2 rounded-xl"
+              className="flex items-center gap-1 md:gap-2 rounded-xl text-xs md:text-sm"
             >
-              <HelpCircle className="w-4 h-4" />
-              Help
+              <HelpCircle className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Help</span>
+              <span className="sm:hidden">?</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Lessons Tab */}
-          <TabsContent value="lessons" className="mt-8">
-            <div className="grid lg:grid-cols-4 gap-8">
+          <TabsContent value="lessons" className="mt-4 md:mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-8">
               {/* Lessons */}
-              <div className="lg:col-span-3">
-                <div className="mb-6">
-                  <h2 className="text-3xl font-semibold text-foreground mb-2">
+              <div className="lg:col-span-3 order-2 lg:order-1">
+                <div className="mb-4 md:mb-6">
+                  <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-2">
                     Your Learning Journey
                   </h2>
                   {userStats.motivation && (
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground text-sm md:text-base">
                       {getMotivationMessage(userStats.motivation)} • Level{" "}
                       {userStats.level}
                     </p>
                   )}
                   {!userStats.motivation && (
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground text-sm md:text-base">
                       Continue mastering Tagalog with interactive lessons
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   {lessons.map((lesson) => (
                     <div
                       key={lesson.id}
@@ -387,11 +394,11 @@ export default function MahalDashboard() {
                           lesson.exercises.length > 0 && startLesson(lesson)
                         }
                       >
-                        <GameCardContent className="p-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
+                        <GameCardContent className="p-4 md:p-6">
+                          <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
+                            <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
                               <div
-                                className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${
+                                className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 ${
                                   lesson.completed || lesson.progress === 100
                                     ? "bg-green-500"
                                     : lesson.progress > 0
@@ -400,25 +407,25 @@ export default function MahalDashboard() {
                                 }`}
                               >
                                 {lesson.completed || lesson.progress === 100 ? (
-                                  <Trophy className="w-8 h-8 text-white" />
+                                  <Trophy className="w-6 h-6 md:w-8 md:h-8 text-white" />
                                 ) : (
-                                  <span className="text-white font-bold text-lg">
+                                  <span className="text-white font-bold text-base md:text-lg">
                                     {lesson.id}
                                   </span>
                                 )}
                               </div>
-                              <div>
-                                <h3 className="font-semibold text-xl text-foreground">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-lg md:text-xl text-foreground">
                                   {lesson.title}
                                 </h3>
-                                <p className="text-muted-foreground mt-1">
+                                <p className="text-muted-foreground mt-1 text-sm md:text-base">
                                   {lesson.description}
                                 </p>
                                 {lesson.progress > 0 && (
                                   <div className="mt-2">
                                     <Progress
                                       value={lesson.progress}
-                                      className="w-40 h-2"
+                                      className="w-full max-w-40 h-2"
                                     />
                                     <span className="text-sm text-muted-foreground mt-1">
                                       {lesson.progress}% complete
@@ -435,7 +442,7 @@ export default function MahalDashboard() {
                             {lesson.exercises.length > 0 && (
                               <GameButton
                                 variant={lesson.completed ? "gold" : "primary"}
-                                className="px-6 py-3 font-medium"
+                                className="px-4 md:px-6 py-2 md:py-3 font-medium text-sm md:text-base flex-shrink-0"
                               >
                                 {lesson.completed || lesson.progress === 100
                                   ? "Review"
@@ -453,12 +460,12 @@ export default function MahalDashboard() {
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6 order-1 lg:order-2">
                 {/* Daily Goal */}
                 <GameCard>
                   <GameCardHeader>
-                    <GameCardTitle className="text-foreground flex items-center gap-2">
-                      <Target className="w-5 h-5 text-blue-500" />
+                    <GameCardTitle className="text-foreground flex items-center gap-2 text-base md:text-lg">
+                      <Target className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
                       Daily Goal
                     </GameCardTitle>
                   </GameCardHeader>
@@ -495,41 +502,41 @@ export default function MahalDashboard() {
                 {/* Quick Stats */}
                 <GameCard>
                   <GameCardHeader>
-                    <GameCardTitle className="text-foreground">
+                    <GameCardTitle className="text-foreground text-base md:text-lg">
                       Quick Stats
                     </GameCardTitle>
                   </GameCardHeader>
-                  <GameCardContent className="space-y-4">
+                  <GameCardContent className="space-y-3 md:space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         Current Streak
                       </span>
                       <div className="flex items-center gap-1">
-                        <Flame className="w-4 h-4 text-red-400" />
-                        <span className="font-semibold text-foreground">
+                        <Flame className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
+                        <span className="font-semibold text-foreground text-sm">
                           {userStats.currentStreak} days
                         </span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Total XP</span>
-                      <span className="font-semibold text-foreground">
+                      <span className="text-muted-foreground text-sm">Total XP</span>
+                      <span className="font-semibold text-foreground text-sm">
                         {userStats.totalXp}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         Lessons Completed
                       </span>
-                      <span className="font-semibold text-foreground">
+                      <span className="font-semibold text-foreground text-sm">
                         {userStats.completedLessons}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         Longest Streak
                       </span>
-                      <span className="font-semibold text-foreground">
+                      <span className="font-semibold text-foreground text-sm">
                         {userStats.longestStreak} days
                       </span>
                     </div>
@@ -540,15 +547,15 @@ export default function MahalDashboard() {
                 {userStats.goals && userStats.goals.length > 0 && (
                   <GameCard>
                     <GameCardHeader>
-                      <GameCardTitle className="text-foreground flex items-center gap-2">
-                        <Target className="w-5 h-5 text-purple-500" />
+                      <GameCardTitle className="text-foreground flex items-center gap-2 text-base md:text-lg">
+                        <Target className="w-4 h-4 md:w-5 md:h-5 text-purple-500" />
                         Your Goals
                       </GameCardTitle>
                     </GameCardHeader>
                     <GameCardContent className="space-y-3">
                       {userStats.goals.slice(0, 3).map((goal) => (
                         <div key={goal} className="flex items-center gap-3">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
                           <span className="text-sm text-foreground">
                             {getGoalTitle(goal)}
                           </span>
@@ -567,17 +574,17 @@ export default function MahalDashboard() {
           </TabsContent>
 
           {/* Achievements Tab */}
-          <TabsContent value="achievements" className="mt-8">
-            <div className="mb-6">
-              <h2 className="text-3xl font-semibold text-foreground mb-2">
+          <TabsContent value="achievements" className="mt-4 md:mt-8">
+            <div className="mb-4 md:mb-6">
+              <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-2">
                 Your Achievements
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-sm md:text-base">
                 Track your progress and unlock new badges
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {achievements.map((achievement) => (
                 <GameCard
                   key={achievement.id}
@@ -587,27 +594,27 @@ export default function MahalDashboard() {
                       : ""
                   }`}
                 >
-                  <GameCardContent className="p-6 text-center">
+                  <GameCardContent className="p-4 md:p-6 text-center">
                     <div
-                      className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+                      className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 md:mb-4 ${
                         achievement.unlocked
                           ? "bg-yellow-500 text-black"
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {iconMap[achievement.icon] || (
-                        <Award className="w-6 h-6" />
+                        <Award className="w-5 h-5 md:w-6 md:h-6" />
                       )}
                     </div>
-                    <h3 className="font-semibold text-lg text-foreground mb-2">
+                    <h3 className="font-semibold text-base md:text-lg text-foreground mb-2">
                       {achievement.title}
                     </h3>
-                    <p className="text-muted-foreground text-sm mb-4">
+                    <p className="text-muted-foreground text-xs md:text-sm mb-3 md:mb-4">
                       {achievement.description}
                     </p>
 
                     {achievement.unlocked ? (
-                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
                         <Check className="w-3 h-3 mr-1" />
                         Unlocked • +{achievement.xpReward} XP
                       </Badge>
@@ -628,7 +635,7 @@ export default function MahalDashboard() {
                     ) : (
                       <Badge
                         variant="outline"
-                        className="text-muted-foreground border-border"
+                        className="text-muted-foreground border-border text-xs"
                       >
                         Locked
                       </Badge>
@@ -640,12 +647,12 @@ export default function MahalDashboard() {
           </TabsContent>
 
           {/* Leaderboard Tab */}
-          <TabsContent value="leaderboard" className="mt-8">
-            <div className="mb-6">
-              <h2 className="text-3xl font-semibold text-foreground mb-2">
+          <TabsContent value="leaderboard" className="mt-4 md:mt-8">
+            <div className="mb-4 md:mb-6">
+              <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-2">
                 Leaderboard
               </h2>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-sm md:text-base">
                 See how you rank against other learners
               </p>
             </div>
@@ -656,15 +663,15 @@ export default function MahalDashboard() {
                   {leaderboard.map((entry, index) => (
                     <div
                       key={entry.id}
-                      className={`flex items-center justify-between p-6 ${
+                      className={`flex items-center justify-between p-4 md:p-6 ${
                         index !== leaderboard.length - 1
                           ? "border-b border-border"
                           : ""
                       }`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                          className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-xs md:text-sm flex-shrink-0 ${
                             entry.rank === 1
                               ? "bg-yellow-500 text-black"
                               : entry.rank === 2
@@ -679,23 +686,23 @@ export default function MahalDashboard() {
                         <ClerkAvatar
                           clerkUserId={entry.id}
                           displayName={entry.displayName}
-                          className="w-12 h-12"
+                          className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0"
                         />
-                        <div>
-                          <p className="font-semibold text-foreground">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground text-sm md:text-base truncate">
                             {entry.displayName}
                           </p>
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm text-muted-foreground">
                             <span>Level {entry.level}</span>
                             <span className="flex items-center gap-1">
-                              <Flame className="w-3 h-3 text-red-400" />
+                              <Flame className="w-3 h-3 text-red-400 flex-shrink-0" />
                               {entry.currentStreak} day streak
                             </span>
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-lg text-foreground">
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-semibold text-sm md:text-lg text-foreground">
                           {entry.totalXp.toLocaleString()} XP
                         </p>
                       </div>
