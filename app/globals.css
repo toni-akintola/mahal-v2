@@ -1,0 +1,195 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-noto-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Philippines Flag Color System */
+  --ph-blue-50: #eff6ff;
+  --ph-blue-100: #dbeafe;
+  --ph-blue-200: #bfdbfe;
+  --ph-blue-300: #93c5fd;
+  --ph-blue-400: #60a5fa;
+  --ph-blue-500: #0060d4;
+  --ph-blue-600: #004bb5;
+  --ph-blue-700: #003d96;
+  --ph-blue-800: #002f77;
+  --ph-blue-900: #002158;
+
+  --ph-red-50: #fef2f2;
+  --ph-red-100: #fee2e2;
+  --ph-red-200: #fecaca;
+  --ph-red-300: #fca5a5;
+  --ph-red-400: #f87171;
+  --ph-red-500: #ce1126;
+  --ph-red-600: #b91c1c;
+  --ph-red-700: #991b1b;
+  --ph-red-800: #7f1d1d;
+  --ph-red-900: #651a1a;
+
+  --ph-gold-50: #fffdf7;
+  --ph-gold-100: #fefcf0;
+  --ph-gold-200: #fef3c7;
+  --ph-gold-300: #fde68a;
+  --ph-gold-400: #fcd34d;
+  --ph-gold-500: #ffd700;
+  --ph-gold-600: #d69e2e;
+  --ph-gold-700: #b7791f;
+  --ph-gold-800: #975a16;
+  --ph-gold-900: #744210;
+
+  /* Dark Background System */
+  --dark-bg-primary: #1a1a1a;
+  --dark-bg-secondary: #242424;
+  --dark-bg-tertiary: #2a2a2a;
+  --dark-border: #3a3a3a;
+  --dark-border-hover: #4a4a4a;
+
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+  --text-disabled: #404040;
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  /* Duolingo Dark Theme */
+  --background: var(--dark-bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--dark-bg-secondary);
+  --card-foreground: var(--text-primary);
+  --popover: var(--dark-bg-secondary);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--ph-blue-500);
+  --primary-foreground: var(--text-primary);
+  --secondary: var(--dark-bg-tertiary);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--dark-bg-tertiary);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--ph-gold-500);
+  --accent-foreground: var(--dark-bg-primary);
+  --destructive: var(--ph-red-500);
+  --border: var(--dark-border);
+  --input: var(--dark-bg-tertiary);
+  --ring: var(--ph-blue-500);
+  --chart-1: var(--ph-blue-500);
+  --chart-2: var(--ph-red-500);
+  --chart-3: var(--ph-gold-500);
+  --chart-4: var(--ph-blue-300);
+  --chart-5: var(--ph-red-300);
+  --sidebar: var(--dark-bg-secondary);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--ph-blue-500);
+  --sidebar-primary-foreground: var(--text-primary);
+  --sidebar-accent: var(--dark-bg-tertiary);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--dark-border);
+  --sidebar-ring: var(--ph-blue-500);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Duolingo-Inspired Game UI Classes */
+@layer utilities {
+  .game-card {
+    @apply rounded-2xl border-4 border-border bg-card shadow-lg transition-all duration-200;
+    box-shadow: 0 4px 0 theme("colors.border");
+  }
+
+  .game-card:hover {
+    @apply -translate-y-1;
+    box-shadow: 0 6px 0 theme("colors.border");
+  }
+
+  .game-card:active {
+    @apply translate-y-0;
+    box-shadow: 0 2px 0 theme("colors.border");
+  }
+
+  .btn-game {
+    @apply rounded-xl border-4 border-b-[6px] font-bold uppercase tracking-wide transition-all duration-150;
+  }
+
+  .btn-game:active {
+    @apply translate-y-1 border-b-4;
+  }
+
+  .btn-primary-game {
+    @apply rounded-xl border-4 border-b-[6px] font-bold uppercase tracking-wide transition-all duration-150 bg-blue-500 border-blue-700 text-white hover:bg-blue-600;
+  }
+
+  .btn-secondary-game {
+    @apply rounded-xl border-4 border-b-[6px] font-bold uppercase tracking-wide transition-all duration-150 bg-red-500 border-red-700 text-white hover:bg-red-600;
+  }
+
+  .btn-gold-game {
+    @apply rounded-xl border-4 border-b-[6px] font-bold uppercase tracking-wide transition-all duration-150 bg-yellow-500 border-yellow-700 text-black hover:bg-yellow-600;
+  }
+
+  .progress-bar-game {
+    @apply h-4 rounded-full bg-muted overflow-hidden;
+  }
+
+  .progress-fill-game {
+    @apply h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out;
+  }
+
+  .xp-counter {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full bg-yellow-500 text-black font-bold text-sm;
+  }
+
+  .streak-counter {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-500 text-white font-bold text-sm;
+  }
+
+  .hearts-counter {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-500 text-white font-bold text-sm;
+  }
+}

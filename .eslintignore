@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Prisma generated files
+lib/generated/
+prisma/generated/
+**/prisma/generated/
+**/*generated*
+
+# Generated API and library files
+**/*.d.ts
+**/wasm*.js
+**/runtime/ 
