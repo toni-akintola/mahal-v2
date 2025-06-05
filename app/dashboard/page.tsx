@@ -23,7 +23,7 @@ import {
   getUserStats,
   getLeaderboard,
 } from "@/lib/actions/achievement-actions";
-import type { Exercise } from "@/utils/types";
+import type { Exercise } from "@/types/types";
 import {
   Flame,
   Trophy,
@@ -366,8 +366,8 @@ export default function MahalDashboard() {
                     <div
                       key={lesson.id}
                       className={`${
-                        lesson.completed
-                          ? ""
+                        lesson.completed || lesson.progress === 100
+                          ? "p-[2px] bg-gradient-to-r from-green-500 to-green-600 rounded-2xl"
                           : lesson.progress > 0
                             ? ""
                             : "p-[2px] bg-gradient-to-r from-blue-500 to-red-500 rounded-2xl"
@@ -377,8 +377,8 @@ export default function MahalDashboard() {
                         variant="lesson"
                         interactive
                         className={`cursor-pointer ${
-                          lesson.completed
-                            ? "border-green-500"
+                          lesson.completed || lesson.progress === 100
+                            ? "border-green-500 bg-background"
                             : lesson.progress > 0
                               ? "border-yellow-500"
                               : "border-transparent bg-background"
@@ -392,14 +392,14 @@ export default function MahalDashboard() {
                             <div className="flex items-center gap-4">
                               <div
                                 className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${
-                                  lesson.completed
+                                  lesson.completed || lesson.progress === 100
                                     ? "bg-green-500"
                                     : lesson.progress > 0
                                       ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                                       : "bg-gradient-to-r from-blue-500 to-red-500"
                                 }`}
                               >
-                                {lesson.completed ? (
+                                {lesson.completed || lesson.progress === 100 ? (
                                   <Trophy className="w-8 h-8 text-white" />
                                 ) : (
                                   <span className="text-white font-bold text-lg">
@@ -437,7 +437,7 @@ export default function MahalDashboard() {
                                 variant={lesson.completed ? "gold" : "primary"}
                                 className="px-6 py-3 font-medium"
                               >
-                                {lesson.completed
+                                {lesson.completed || lesson.progress === 100
                                   ? "Review"
                                   : lesson.progress > 0
                                     ? "Continue"

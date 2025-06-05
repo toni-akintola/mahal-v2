@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { User } from "../generated/prisma";
+import type { User } from "@/types/types";
 
 export interface OnboardingData {
   motivation: string;

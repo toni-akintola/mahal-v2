@@ -1,4 +1,4 @@
-import { Lesson } from "@/utils/types";
+import { Lesson } from "@/types/types";
 
 export const lessons: Lesson[] = [
   {

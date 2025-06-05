@@ -1,9 +1,48 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { UserService } from "@/lib/services/user-service";
+import type { FriendRequest } from "@/types/types";
+
+// Custom interfaces for database returns with Prisma includes
+interface FriendshipWithUser {
+  id: string;
+  userId: string;
+  friendId: string;
+  status: string;
+  createdAt: Date;
+  acceptedAt: Date | null;
+  user: {
+    id: string;
+    clerkUserId: string;
+    displayName: string | null;
+    imageUrl: string | null;
+    level: number;
+    currentStreak: number;
+    lastActiveAt: Date;
+  };
+}
+
+interface FriendshipWithFriend {
+  id: string;
+  userId: string;
+  friendId: string;
+  status: string;
+  createdAt: Date;
+  acceptedAt: Date | null;
+  friend: {
+    id: string;
+    clerkUserId: string;
+    displayName: string | null;
+    imageUrl: string | null;
+    level: number;
+    currentStreak: number;
+    lastActiveAt: Date;
+  };
+}
 
 // Helper function to get user and throw error if not found
 async function getRequiredUser(clerkUserId: string) {
@@ -241,12 +280,12 @@ export async function getFriendRequests() {
     });
 
     return {
-      received: receivedRequests.map((req) => ({
+      received: receivedRequests.map((req: FriendshipWithUser): FriendRequest => ({
         id: req.id,
         user: req.user,
         createdAt: req.createdAt,
       })),
-      sent: sentRequests.map((req) => ({
+      sent: sentRequests.map((req: FriendshipWithFriend): FriendRequest => ({
         id: req.id,
         user: req.friend,
         createdAt: req.createdAt,
@@ -406,12 +445,12 @@ export async function leaveStudyGroup(groupId: string) {
       where: { studyGroupId: groupId },
     });
 
-    const remainingAdmins = remainingMembers.filter((m) => m.role === "admin");
+    const remainingAdmins = remainingMembers.filter((m: { role: string; }) => (m as { role: string }).role === "admin");
 
     if (remainingAdmins.length === 0 && remainingMembers.length > 0) {
       // Promote the oldest member to admin
       const oldestMember = remainingMembers.sort(
-        (a, b) => a.joinedAt.getTime() - b.joinedAt.getTime(),
+        (a: { joinedAt: Date; }, b: { joinedAt: Date; }) => (a as { joinedAt: Date }).joinedAt.getTime() - (b as { joinedAt: Date }).joinedAt.getTime(),
       )[0];
 
       await db.studyGroupMember.update({
@@ -471,14 +510,14 @@ export async function getUserStudyGroups() {
       },
     });
 
-    return memberships.map((membership) => ({
+    return memberships.map((membership: any) => ({
       id: membership.studyGroup.id,
       name: membership.studyGroup.name,
       description: membership.studyGroup.description,
       isPublic: membership.studyGroup.isPublic,
       maxMembers: membership.studyGroup.maxMembers,
       memberCount: membership.studyGroup.members.length,
-      members: membership.studyGroup.members.map((m) => ({
+      members: membership.studyGroup.members.map((m: any) => ({
         ...m.user,
         role: m.role,
         joinedAt: m.joinedAt,
@@ -507,7 +546,7 @@ export async function searchPublicStudyGroups(query: string = "") {
       select: { studyGroupId: true },
     });
 
-    const userGroupIds = userMemberships.map((m) => m.studyGroupId);
+    const userGroupIds = userMemberships.map((m: any) => m.studyGroupId);
 
     const studyGroups = await db.studyGroup.findMany({
       where: {
@@ -541,13 +580,13 @@ export async function searchPublicStudyGroups(query: string = "") {
       take: 20,
     });
 
-    return studyGroups.map((group) => ({
+    return studyGroups.map((group: any) => ({
       id: group.id,
       name: group.name,
       description: group.description,
       maxMembers: group.maxMembers,
       memberCount: group.members.length,
-      members: group.members.slice(0, 3).map((m) => ({
+      members: group.members.slice(0, 3).map((m: any) => ({
         // Show first 3 members as preview
         ...m.user,
         role: m.role,

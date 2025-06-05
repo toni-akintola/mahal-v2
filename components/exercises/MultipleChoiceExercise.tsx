@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Exercise } from "@/utils/types";
+import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
 
 interface MultipleChoiceExerciseProps {

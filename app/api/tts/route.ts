@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Return audio stream as response for browser to play
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return new NextResponse(audio as any, {
         status: 200,
         headers: {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Exercise } from "@/utils/types";
+import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
 import { Badge } from "@/components/ui/badge";
 import { Volume2, Loader2, X } from "lucide-react";
@@ -26,6 +26,7 @@ export function ListeningExercise({
   // Generate audio when component mounts
   useEffect(() => {
     generateAudio();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateAudio = async () => {

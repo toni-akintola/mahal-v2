@@ -4,7 +4,22 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { lessons } from "@/data/lessons";
 import { UserService } from "@/lib/services/user-service";
-import type { UserLessonProgress } from "../generated/prisma";
+
+// Custom interfaces to replace Prisma types
+interface UserLessonProgress {
+  id: string;
+  userId: string;
+  lessonId: string;
+  status: string;
+  progressPercentage: number;
+  attempts: number;
+  bestScore: number | null;
+  totalTimeSpent: number;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export async function getUserLessons() {
   try {
@@ -50,7 +65,7 @@ export async function getUserLessons() {
 
     // Combine static lesson data with user progress
     return availableLessons.map((lesson) => {
-      const progress = progressMap.get(lesson.id.toString());
+      const progress = progressMap.get(lesson.id.toString()) as UserLessonProgress | undefined;
       return {
         ...lesson,
         completed: progress?.status === "completed",
@@ -117,7 +132,6 @@ export async function startLesson(lessonId: string) {
 
 export async function updateExerciseProgress(
   lessonId: string,
-  isCorrect: boolean,
   xpEarned: number,
   exerciseIndex?: number,
   totalExercises?: number,

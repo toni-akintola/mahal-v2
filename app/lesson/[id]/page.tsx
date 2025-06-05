@@ -16,7 +16,7 @@ import { getUserLessons } from "@/lib/actions/lesson-actions";
 import { completeLesson } from "@/lib/actions/achievement-actions";
 import { useTTS } from "@/lib/hooks/use-tts";
 import { ExerciseEngine } from "@/components/exercises/ExerciseEngine";
-import type { Exercise } from "@/utils/types";
+import type { Exercise } from "@/types/types";
 import {
   ArrowLeft,
   Trophy,

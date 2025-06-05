@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Exercise } from "@/utils/types";
+import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
 import { Mic, MicOff, Volume2, Loader2 } from "lucide-react";
 

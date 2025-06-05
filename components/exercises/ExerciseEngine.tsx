@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Exercise } from "@/utils/types";
+import { Exercise } from "@/types/types";
 import {
   GameCard,
   GameCardContent,
@@ -107,7 +107,6 @@ export function ExerciseEngine({
       try {
         await updateExerciseProgress(
           lessonId,
-          isCorrect,
           xp,
           currentExerciseIndex,
           exercises.length,

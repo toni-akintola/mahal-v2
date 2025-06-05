@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Exercise } from "@/utils/types";
+import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

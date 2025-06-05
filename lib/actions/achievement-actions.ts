@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { UserService } from "@/lib/services/user-service";
+// Using Prisma return types directly
 
 export async function getUserAchievements() {
   try {
@@ -189,7 +190,7 @@ export async function completeLesson(lessonId: string, score: number) {
 
     // If lesson was previously completed, user only gets 1/3 XP
     const wasCompleted = existingProgress?.status === "completed";
-    const xpMultiplier = wasCompleted ? 1 / 3 : 1;
+    const xpMultiplier = wasCompleted ? 1/3 : 1;
     const baseXp = Math.floor((score / 100) * lesson.xpReward);
     const xpGained = Math.floor(baseXp * xpMultiplier);
     const isPerfectScore = score === 100;
