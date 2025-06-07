@@ -189,6 +189,9 @@ export const userLessonProgress = pgTable(
     updatedAt: timestamp("updated_at", { mode: "string" })
       .defaultNow()
       .notNull(),
+    currentExerciseIndex: integer("current_exercise_index")
+      .default(0)
+      .notNull(),
   },
   (table) => [
     unique("user_lesson_progress_user_id_lesson_id_unique").on(

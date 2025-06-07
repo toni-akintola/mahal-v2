@@ -93,6 +93,7 @@ export interface UserLessonProgress {
   lessonId: string;
   status: string;
   progressPercentage: number;
+  currentExerciseIndex: number;
   attempts: number;
   bestScore: number | null;
   totalTimeSpent: number;

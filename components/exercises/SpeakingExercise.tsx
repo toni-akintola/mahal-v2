@@ -1,61 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
-import { Mic, MicOff, Volume2, Loader2 } from "lucide-react";
+import { Mic, Volume2, Loader2, AlertCircle } from "lucide-react";
 import { useTTS } from "@/lib/hooks/use-tts";
-
-// TypeScript interfaces for Web Speech API
-interface SpeechRecognitionEvent {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionErrorEvent {
-  error: string;
-  message: string;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-}
-
-interface SpeechRecognitionStatic {
-  new (): SpeechRecognition;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionStatic;
-    webkitSpeechRecognition?: SpeechRecognitionStatic;
-  }
-}
 
 interface SpeakingExerciseProps {
   exercise: Exercise;
@@ -67,70 +16,109 @@ export function SpeakingExercise({
   onSubmit,
 }: SpeakingExerciseProps) {
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
   const { speak, isLoading: ttsLoading } = useTTS();
 
-  useEffect(() => {
-    // Check if speech recognition is supported
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    setIsSupported(!!SpeechRecognition);
-
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = "tl-PH"; // Filipino
-
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const result = event.results[0][0].transcript;
-        setTranscription(result);
-        setIsRecording(false);
-        setShowResult(true);
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error("Speech recognition error:", event.error);
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, []);
-
-  const startRecording = () => {
-    if (!recognitionRef.current || isRecording) return;
-
-    setTranscription("");
-    setShowResult(false);
-    setIsRecording(true);
-
+  const startRecording = async () => {
     try {
-      recognitionRef.current.start();
-    } catch (error) {
-      console.error("Error starting recognition:", error);
+      setError(null);
+      setTranscription("");
+      setShowResult(false);
+
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/mp4",
+      });
+
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsRecording(false);
+        setIsProcessing(true);
+
+        // Create audio blob
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mediaRecorder.mimeType,
+        });
+
+        // Send to speech-to-text API
+        await processAudio(audioBlob);
+
+        // Cleanup
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error starting recording:", err);
+      setError("Could not access microphone. Please check permissions.");
       setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
-    if (recognitionRef.current && isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const processAudio = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+
+      const response = await fetch("/api/speech-to-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Speech recognition failed");
+      }
+
+      const result = await response.json();
+      setTranscription(result.text);
+      // setConfidence(result.confidence);
+      setShowResult(true);
+      setError(null);
+    } catch (err) {
+      console.error("Error processing audio:", err);
+      setError(
+        err instanceof Error ? err.message : "Speech recognition failed",
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -144,7 +132,6 @@ export function SpeakingExercise({
   const handleSubmit = () => {
     setSubmitted(true);
 
-    // Simple pronunciation check - compare transcribed text with expected text
     const normalizedTranscription = transcription.toLowerCase().trim();
     const expectedText =
       exercise.text || exercise.answer || exercise.question || "";
@@ -193,27 +180,9 @@ export function SpeakingExercise({
     setTranscription("");
     setShowResult(false);
     setSubmitted(false);
+    setError(null);
+    // setConfidence(0);
   };
-
-  if (!isSupported) {
-    return (
-      <div className="text-center py-8">
-        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-          <MicOff className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">
-          Speech Recognition Not Supported
-        </h3>
-        <p className="text-muted-foreground mb-6">
-          Your browser doesn&apos;t support speech recognition. Please use
-          Chrome or Edge for the best experience.
-        </p>
-        <GameButton onClick={() => onSubmit("skipped", true)} variant="outline">
-          Skip Exercise
-        </GameButton>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -222,7 +191,7 @@ export function SpeakingExercise({
           Say this word or phrase
         </h3>
         <p className="text-muted-foreground mb-6">
-          Click the microphone and speak clearly
+          Record your voice and speak clearly. Works on all devices!
         </p>
       </div>
 
@@ -256,51 +225,90 @@ export function SpeakingExercise({
       </div>
 
       {/* Recording Interface */}
-      <div className="text-center">
-        <div className="bg-muted/50 rounded-lg p-8 mb-6 max-w-md mx-auto">
+      <div className="max-w-md mx-auto">
+        <div className="bg-muted/50 rounded-lg p-6 mb-6">
           <div className="flex flex-col items-center gap-4">
-            <div
-              className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
-                isRecording
-                  ? "bg-red-500 animate-pulse"
-                  : "bg-blue-500 hover:bg-blue-600"
-              }`}
-            >
-              {isRecording ? (
-                <Loader2 className="w-8 h-8 text-white animate-spin" />
-              ) : (
-                <Mic className="w-8 h-8 text-white" />
-              )}
-            </div>
-
             <GameButton
               onClick={isRecording ? stopRecording : startRecording}
-              disabled={submitted}
+              disabled={submitted || isProcessing}
               variant={isRecording ? "destructive" : "primary"}
-              className="px-6 py-3"
+              className="px-6 py-3 min-w-[160px]"
             >
-              {isRecording ? "Stop Recording" : "Start Recording"}
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : isRecording ? (
+                <>
+                  <Mic className="w-4 h-4 mr-2" />
+                  Stop Recording
+                </>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4 mr-2" />
+                  Start Recording
+                </>
+              )}
             </GameButton>
 
             {isRecording && (
               <p className="text-sm text-muted-foreground animate-pulse">
-                Listening...
+                Listening... Speak clearly!
+              </p>
+            )}
+
+            {isProcessing && (
+              <p className="text-sm text-muted-foreground">
+                Converting speech to text...
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Transcription Result */}
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-md mx-auto">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-medium">Recording Error</p>
+            </div>
+            <p className="text-sm text-red-300 mt-1">{error}</p>
+            <GameButton
+              onClick={tryAgain}
+              variant="outline"
+              className="mt-3 text-xs"
+            >
+              Try Again
+            </GameButton>
+          </div>
+        </div>
+      )}
+
+      {/* Result Display */}
       {showResult && transcription && (
         <div className="max-w-md mx-auto">
           <div className="bg-card border border-border rounded-lg p-4 mb-4">
             <h4 className="font-semibold text-foreground mb-2">
               What we heard:
             </h4>
-            <p className="text-lg text-muted-foreground italic">
+            <p className="text-lg text-muted-foreground italic mb-2">
               &quot;{transcription}&quot;
             </p>
+            {/* {confidence > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Confidence:</span>
+                <div className="flex-1 bg-muted rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all"
+                    style={{ width: `${confidence * 100}%` }}
+                  />
+                </div>
+                <span>{Math.round(confidence * 100)}%</span>
+              </div>
+            )} */}
           </div>
 
           <div className="flex gap-3">
@@ -324,10 +332,10 @@ export function SpeakingExercise({
         </div>
       )}
 
-      {!showResult && !isRecording && (
+      {!showResult && !isRecording && !isProcessing && !error && (
         <div className="text-center">
           <p className="text-muted-foreground text-sm">
-            Tap the microphone to start recording
+            Click &quot;Start Recording&quot; to begin
           </p>
         </div>
       )}

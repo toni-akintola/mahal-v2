@@ -38,6 +38,7 @@ import { ListeningExercise } from "./ListeningExercise";
 interface ExerciseEngineProps {
   exercises: Exercise[];
   lessonId: string;
+  startExerciseIndex?: number;
   onComplete: (score: number, xpEarned: number) => void;
   onExit: () => void;
 }
@@ -54,10 +55,12 @@ interface ExerciseResult {
 export function ExerciseEngine({
   exercises,
   lessonId,
+  startExerciseIndex = 0,
   onComplete,
   onExit,
 }: ExerciseEngineProps) {
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [currentExerciseIndex, setCurrentExerciseIndex] =
+    useState(startExerciseIndex);
   const [results, setResults] = useState<ExerciseResult[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
   const [lastResult, setLastResult] = useState<ExerciseResult | null>(null);
@@ -277,50 +280,86 @@ export function ExerciseEngine({
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-card border-b border-border px-4 py-3 md:py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-            <GameButton
-              variant="ghost"
-              onClick={onExit}
-              className="p-1.5 md:p-2 flex-shrink-0"
-            >
-              <ArrowRight className="w-4 h-4 md:w-5 md:h-5 rotate-180" />
-            </GameButton>
-            <div className="flex-1 min-w-0">
-              <Progress
-                value={progress}
-                className="h-2 md:h-3 w-full max-w-64"
-              />
-              <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                {currentExerciseIndex + 1} of {exercises.length}
-              </p>
+        <div className="max-w-4xl mx-auto">
+          {/* Mobile Layout - Stack vertically */}
+          <div className="flex flex-col gap-3 sm:hidden">
+            <div className="flex items-center justify-between">
+              <GameButton
+                variant="ghost"
+                onClick={onExit}
+                className="p-1.5 flex-shrink-0"
+              >
+                <ArrowRight className="w-4 h-4 rotate-180" />
+              </GameButton>
+              <div className="flex items-center gap-2">
+                {[...Array(2)].map((_, i) => (
+                  <Heart
+                    key={i}
+                    className={`w-5 h-5 ${
+                      i < lives
+                        ? "fill-red-500 text-red-500"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex-1 mr-4">
+                <Progress value={progress} className="h-2 w-full" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {currentExerciseIndex + 1} of {exercises.length}
+                </p>
+              </div>
+              {streak > 0 && (
+                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
+                  <Star className="w-2.5 h-2.5 mr-1" />
+                  {streak}
+                </Badge>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-            <div className="flex items-center gap-1 md:gap-2">
-              <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">
-                Lives:
-              </span>
-              {[...Array(2)].map((_, i) => (
-                <Heart
-                  key={i}
-                  className={`w-5 h-5 md:w-6 md:h-6 ${
-                    i < lives
-                      ? "fill-red-500 text-red-500"
-                      : "text-muted-foreground"
-                  }`}
-                />
-              ))}
+          {/* Desktop Layout - Single row */}
+          <div className="hidden sm:flex items-center justify-between">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <GameButton
+                variant="ghost"
+                onClick={onExit}
+                className="p-2 flex-shrink-0"
+              >
+                <ArrowRight className="w-5 h-5 rotate-180" />
+              </GameButton>
+              <div className="flex-1 min-w-0">
+                <Progress value={progress} className="h-3 w-full max-w-64" />
+                <p className="text-sm text-muted-foreground mt-1">
+                  {currentExerciseIndex + 1} of {exercises.length}
+                </p>
+              </div>
             </div>
 
-            {streak > 0 && (
-              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
-                <Star className="w-2.5 h-2.5 md:w-3 md:h-3 mr-1" />
-                <span className="hidden sm:inline">{streak} streak</span>
-                <span className="sm:hidden">{streak}</span>
-              </Badge>
-            )}
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Lives:</span>
+                {[...Array(2)].map((_, i) => (
+                  <Heart
+                    key={i}
+                    className={`w-6 h-6 ${
+                      i < lives
+                        ? "fill-red-500 text-red-500"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {streak > 0 && (
+                <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
+                  <Star className="w-3 h-3 mr-1" />
+                  {streak} streak
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </div>

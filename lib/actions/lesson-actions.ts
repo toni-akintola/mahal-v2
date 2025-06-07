@@ -15,6 +15,7 @@ interface UserLessonProgress {
   lessonId: string;
   status: string;
   progressPercentage: number;
+  currentExerciseIndex: number;
   attempts: number;
   bestScore: number | null;
   totalTimeSpent: number;
@@ -78,6 +79,7 @@ export async function getUserLessons() {
         ...lesson,
         completed: progress?.status === "completed",
         progress: progress?.progressPercentage || 0,
+        currentExerciseIndex: progress?.currentExerciseIndex || 0,
         bestScore: progress?.bestScore || 0,
         attempts: progress?.attempts || 0,
         startedAt: progress?.startedAt,
@@ -184,10 +186,12 @@ export async function updateExerciseProgress(
 
     // Calculate progress percentage if we have exercise info
     let progressPercentage = 0;
+    let currentExerciseIndex = 0;
     if (exerciseIndex !== undefined && totalExercises !== undefined) {
       progressPercentage = Math.round(
         ((exerciseIndex + 1) / totalExercises) * 100,
       );
+      currentExerciseIndex = exerciseIndex;
     }
 
     let progressResult;
@@ -201,6 +205,7 @@ export async function updateExerciseProgress(
           lessonId: lessonId,
           status: "in_progress",
           progressPercentage: progressPercentage,
+          currentExerciseIndex: currentExerciseIndex,
           startedAt: new Date(),
           attempts: 1,
           updatedAt: new Date(),
@@ -216,6 +221,10 @@ export async function updateExerciseProgress(
           progressPercentage: Math.max(
             progress[0].progressPercentage || 0,
             progressPercentage,
+          ),
+          currentExerciseIndex: Math.max(
+            progress[0].currentExerciseIndex || 0,
+            currentExerciseIndex,
           ),
           status: "in_progress",
           updatedAt: new Date(),

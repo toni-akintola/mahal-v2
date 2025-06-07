@@ -53,6 +53,7 @@ interface LessonWithProgress {
   exercises: Exercise[];
   completed: boolean;
   progress: number;
+  currentExerciseIndex: number;
   bestScore: number;
   attempts: number;
   startedAt?: Date;
@@ -95,6 +96,7 @@ export default function LessonPage() {
                   ...staticLesson,
                   progress: 0,
                   completed: false,
+                  currentExerciseIndex: 0,
                   bestScore: 0,
                   attempts: 0,
                 }
@@ -113,6 +115,7 @@ export default function LessonPage() {
                 ...staticLesson,
                 progress: 0,
                 completed: false,
+                currentExerciseIndex: 0,
                 bestScore: 0,
                 attempts: 0,
               }
@@ -503,16 +506,41 @@ export default function LessonPage() {
                       </div>
                     </div>
 
+                    {/* Resume Message */}
+                    {lesson.currentExerciseIndex > 0 &&
+                      lesson.currentExerciseIndex < lesson.exercises.length && (
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 max-w-2xl mx-auto">
+                          <div className="flex items-center gap-2 text-blue-400 mb-2">
+                            <Play className="w-4 h-4" />
+                            <span className="font-semibold">
+                              Resume Progress
+                            </span>
+                          </div>
+                          <p className="text-sm text-blue-300">
+                            You can continue from exercise{" "}
+                            {lesson.currentExerciseIndex + 1} of{" "}
+                            {lesson.exercises.length}. Your progress has been
+                            saved!
+                          </p>
+                        </div>
+                      )}
+
                     <div className="space-y-4">
                       <h3 className="font-semibold text-foreground">
-                        Start Practice Session
+                        {lesson.currentExerciseIndex > 0 &&
+                        lesson.currentExerciseIndex < lesson.exercises.length
+                          ? "Continue Practice Session"
+                          : "Start Practice Session"}
                       </h3>
                       <GameButton
                         variant="primary"
                         onClick={() => setShowExercises(true)}
                         className="text-lg px-8 py-4"
                       >
-                        Begin Exercises
+                        {lesson.currentExerciseIndex > 0 &&
+                        lesson.currentExerciseIndex < lesson.exercises.length
+                          ? "Continue Exercise"
+                          : "Begin Exercises"}
                       </GameButton>
 
                       <div className="mt-8">
@@ -537,9 +565,19 @@ export default function LessonPage() {
                   <GameCardContent className="space-y-4">
                     <div className="flex justify-between items-center py-3 border-b border-border">
                       <span className="text-muted-foreground">Progress</span>
-                      <span className="font-bold text-foreground">
-                        {lesson.progress}%
-                      </span>
+                      <div className="text-right">
+                        <span className="font-bold text-foreground">
+                          {lesson.progress}%
+                        </span>
+                        {lesson.currentExerciseIndex > 0 &&
+                          lesson.currentExerciseIndex <
+                            lesson.exercises.length && (
+                            <p className="text-xs text-muted-foreground">
+                              Exercise {lesson.currentExerciseIndex + 1} of{" "}
+                              {lesson.exercises.length}
+                            </p>
+                          )}
+                      </div>
                     </div>
                     <div className="flex justify-between items-center py-3 border-b border-border">
                       <span className="text-muted-foreground">
@@ -575,15 +613,40 @@ export default function LessonPage() {
                     {lesson.exercises.map((exercise, index) => (
                       <div
                         key={index}
-                        className="flex justify-between items-center p-3 bg-muted/30 rounded-xl"
+                        className={`flex justify-between items-center p-3 rounded-xl ${
+                          index < lesson.currentExerciseIndex
+                            ? "bg-green-500/10 border border-green-500/30"
+                            : index === lesson.currentExerciseIndex &&
+                                lesson.currentExerciseIndex <
+                                  lesson.exercises.length
+                              ? "bg-blue-500/10 border border-blue-500/30"
+                              : "bg-muted/30"
+                        }`}
                       >
-                        <div>
-                          <span className="font-medium text-foreground capitalize">
-                            {exercise.type.replace(/([A-Z])/g, " $1").trim()}
-                          </span>
-                          <p className="text-sm text-muted-foreground truncate max-w-48">
-                            {exercise.question}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                              index < lesson.currentExerciseIndex
+                                ? "bg-green-500 text-white"
+                                : index === lesson.currentExerciseIndex &&
+                                    lesson.currentExerciseIndex <
+                                      lesson.exercises.length
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {index < lesson.currentExerciseIndex
+                              ? "✓"
+                              : index + 1}
+                          </div>
+                          <div>
+                            <span className="font-medium text-foreground capitalize">
+                              {exercise.type.replace(/([A-Z])/g, " $1").trim()}
+                            </span>
+                            <p className="text-sm text-muted-foreground truncate max-w-48">
+                              {exercise.question}
+                            </p>
+                          </div>
                         </div>
                         <Badge variant="outline" className="ml-2">
                           {exercise.xp} XP
@@ -603,6 +666,7 @@ export default function LessonPage() {
         <ExerciseEngine
           exercises={lesson.exercises}
           lessonId={lessonId}
+          startExerciseIndex={lesson.currentExerciseIndex}
           onComplete={handleExerciseComplete}
           onExit={handleExerciseExit}
         />
