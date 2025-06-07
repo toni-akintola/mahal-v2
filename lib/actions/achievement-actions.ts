@@ -4,7 +4,25 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { UserService } from "@/lib/services/user-service";
-// Using Prisma return types directly
+import {
+  users,
+  achievements,
+  userAchievements,
+  userLessonProgress,
+  lessons,
+  dailyStats,
+} from "@/lib/db/schema";
+import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
+
+// Infer types from Drizzle schema
+type UserStatsData = {
+  user: typeof users.$inferSelect;
+  completedLessons: number;
+  todayXp: number;
+  todayLessons: number;
+  dailyXpGoal: number;
+};
 
 export async function getUserAchievements() {
   try {
@@ -12,25 +30,34 @@ export async function getUserAchievements() {
     if (!userId) throw new Error("Not authenticated");
 
     // Get user from database
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId));
+    const user = userResult[0];
 
     if (!user) throw new Error("User not found");
 
-    // Get all achievements with user progress
-    const achievements = await db.achievement.findMany({
-      include: {
-        userAchievements: {
-          where: { userId: user.id },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    // Get all achievements
+    const allAchievements = await db
+      .select()
+      .from(achievements)
+      .orderBy(achievements.createdAt);
+
+    // Get user achievements for this user
+    const userAchievementsList = await db
+      .select()
+      .from(userAchievements)
+      .where(eq(userAchievements.userId, user.id));
+
+    // Create a map for quick lookup
+    const userAchievementsMap = new Map(
+      userAchievementsList.map((ua) => [ua.achievementId, ua]),
+    );
 
     // Format achievements with progress data
-    return achievements.map((achievement) => {
-      const userAchievement = achievement.userAchievements[0];
+    return allAchievements.map((achievement) => {
+      const userAchievement = userAchievementsMap.get(achievement.id);
       return {
         id: achievement.id,
         key: achievement.key,
@@ -52,7 +79,7 @@ export async function getUserAchievements() {
   }
 }
 
-export async function getUserStats() {
+export async function getUserStats(): Promise<UserStatsData> {
   try {
     const { userId } = await auth();
     if (!userId) throw new Error("Not authenticated");
@@ -60,69 +87,84 @@ export async function getUserStats() {
     // Check and update user streak on dashboard load
     await UserService.checkAndUpdateStreak(userId);
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-      include: {
-        lessonProgress: {
-          where: { status: "completed" },
-        },
-        dailyStats: {
-          where: {
-            date: {
-              gte: new Date(new Date().setHours(0, 0, 0, 0)), // Today
-            },
-          },
-        },
-      },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId));
+    const user = userResult[0];
 
     if (!user) throw new Error("User not found");
 
-    const todayStats = user.dailyStats[0];
-    const completedLessons = user.lessonProgress.length;
+    // Get completed lesson progress
+    const lessonProgressList = await db
+      .select()
+      .from(userLessonProgress)
+      .where(
+        and(
+          eq(userLessonProgress.userId, user.id),
+          eq(userLessonProgress.status, "completed"),
+        ),
+      );
 
-    // Calculate daily XP goal based on user's commitment and experience level
-    let dailyXpGoal = 50; // Default goal
+    // Get today's stats
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayStatsList = await db
+      .select()
+      .from(dailyStats)
+      .where(
+        and(
+          eq(dailyStats.userId, user.id),
+          eq(dailyStats.date, today.toISOString().split("T")[0]),
+        ),
+      );
+
+    const todayStats = todayStatsList[0];
+    const completedLessons = lessonProgressList.length;
+
+    // Calculate daily XP goal based on user's time commitment from onboarding
+    let dailyXpGoal = 50; // Default goal for 10-15 minute sessions
 
     if (user.dailyTimeCommitment) {
       switch (user.dailyTimeCommitment) {
-        case "5-10":
-          dailyXpGoal = 25;
+        case "5-minutes":
+          dailyXpGoal = 25; // Quick daily practice
           break;
-        case "10-20":
-          dailyXpGoal = 50;
+        case "10-minutes":
+          dailyXpGoal = 50; // Short but consistent learning
           break;
-        case "20-30":
-          dailyXpGoal = 75;
+        case "15-minutes":
+          dailyXpGoal = 75; // Balanced daily commitment
           break;
-        case "30+":
-          dailyXpGoal = 100;
+        case "30-minutes":
+          dailyXpGoal = 100; // Serious about learning
+          break;
+        case "1-hour":
+          dailyXpGoal = 150; // Intensive learning mode
           break;
         default:
-          dailyXpGoal = 50;
+          dailyXpGoal = 50; // Default fallback
       }
     }
 
-    // Adjust based on user level (higher levels need more XP)
-    if (user.level > 10) {
-      dailyXpGoal = Math.floor(dailyXpGoal * 1.5);
+    // Adjust based on user level (higher levels need more XP to stay challenged)
+    if (user.level > 20) {
+      dailyXpGoal = Math.floor(dailyXpGoal * 1.8);
+    } else if (user.level > 15) {
+      dailyXpGoal = Math.floor(dailyXpGoal * 1.6);
+    } else if (user.level > 10) {
+      dailyXpGoal = Math.floor(dailyXpGoal * 1.4);
     } else if (user.level > 5) {
       dailyXpGoal = Math.floor(dailyXpGoal * 1.2);
     }
 
     return {
-      level: user.level,
-      totalXp: user.totalXp,
-      currentStreak: user.currentStreak,
-      longestStreak: user.longestStreak,
-      hearts: user.hearts,
+      user,
       completedLessons,
       todayXp: todayStats?.xpEarned || 0,
       todayLessons: todayStats?.lessonsCompleted || 0,
       dailyXpGoal,
-      motivation: user.motivation,
-      experience: user.experience,
-      goals: user.goals,
     };
   } catch (error) {
     console.error("Error fetching user stats:", error);
@@ -132,22 +174,19 @@ export async function getUserStats() {
 
 export async function getLeaderboard() {
   try {
-    const leaderboard = await db.user.findMany({
-      select: {
-        id: true,
-        displayName: true,
-        imageUrl: true,
-        level: true,
-        totalXp: true,
-        currentStreak: true,
-      },
-      where: {
-        onboardingCompleted: true,
-        totalXp: { gt: 0 },
-      },
-      orderBy: [{ totalXp: "desc" }, { currentStreak: "desc" }],
-      take: 10,
-    });
+    const leaderboard = await db
+      .select({
+        id: users.id,
+        displayName: users.displayName,
+        imageUrl: users.imageUrl,
+        level: users.level,
+        totalXp: users.totalXp,
+        currentStreak: users.currentStreak,
+      })
+      .from(users)
+      .where(and(eq(users.onboardingCompleted, true), gte(users.totalXp, 1)))
+      .orderBy(desc(users.totalXp), desc(users.currentStreak))
+      .limit(10);
 
     return leaderboard.map((user, index) => ({
       ...user,
@@ -165,59 +204,68 @@ export async function completeLesson(lessonId: string, score: number) {
     const { userId } = await auth();
     if (!userId) throw new Error("Not authenticated");
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId));
+    const user = userResult[0];
 
     if (!user) throw new Error("User not found");
 
     // Get lesson details
-    const lesson = await db.lesson.findUnique({
-      where: { id: lessonId },
-    });
+    const lessonResult = await db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.id, lessonId));
+    const lesson = lessonResult[0];
 
     if (!lesson) throw new Error("Lesson not found");
 
     // Check if lesson was previously completed to determine XP multiplier
-    const existingProgress = await db.userLessonProgress.findUnique({
-      where: {
-        userId_lessonId: {
-          userId: user.id,
-          lessonId: lessonId,
-        },
-      },
-    });
+    const existingProgressResult = await db
+      .select()
+      .from(userLessonProgress)
+      .where(
+        and(
+          eq(userLessonProgress.userId, user.id),
+          eq(userLessonProgress.lessonId, lessonId),
+        ),
+      );
+
+    const existingProgress = existingProgressResult[0];
 
     // If lesson was previously completed, user only gets 1/3 XP
     const wasCompleted = existingProgress?.status === "completed";
-    const xpMultiplier = wasCompleted ? 1/3 : 1;
+    const xpMultiplier = wasCompleted ? 1 / 3 : 1;
     const baseXp = Math.floor((score / 100) * lesson.xpReward);
     const xpGained = Math.floor(baseXp * xpMultiplier);
     const isPerfectScore = score === 100;
 
     if (existingProgress) {
-      await db.userLessonProgress.update({
-        where: { id: existingProgress.id },
-        data: {
+      await db
+        .update(userLessonProgress)
+        .set({
           status: "completed",
           progressPercentage: 100,
           bestScore: Math.max(existingProgress.bestScore || 0, score),
           attempts: existingProgress.attempts + 1,
           completedAt: new Date(),
-        },
-      });
+          updatedAt: new Date(),
+        })
+        .where(eq(userLessonProgress.id, existingProgress.id));
     } else {
-      await db.userLessonProgress.create({
-        data: {
-          userId: user.id,
-          lessonId: lessonId,
-          status: "completed",
-          progressPercentage: 100,
-          bestScore: score,
-          attempts: 1,
-          startedAt: new Date(),
-          completedAt: new Date(),
-        },
+      await db.insert(userLessonProgress).values({
+        id: nanoid(),
+        userId: user.id,
+        lessonId: lessonId,
+        status: "completed",
+        progressPercentage: 100,
+        bestScore: score,
+        attempts: 1,
+        startedAt: new Date(),
+        completedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 
@@ -228,40 +276,58 @@ export async function completeLesson(lessonId: string, score: number) {
     const newTotalXp = updatedUser.totalXp + xpGained;
     const newLevel = Math.floor(newTotalXp / 100) + 1;
 
-    await db.user.update({
-      where: { id: user.id },
-      data: {
+    await db
+      .update(users)
+      .set({
         totalXp: newTotalXp,
         level: newLevel,
-      },
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
 
     // Update daily stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayDateString = today.toISOString().split("T")[0];
 
-    await db.dailyStats.upsert({
-      where: {
-        userId_date: {
-          userId: user.id,
-          date: today,
-        },
-      },
-      update: {
-        xpEarned: { increment: xpGained },
-        lessonsCompleted: { increment: 1 },
-        timeSpent: { increment: lesson.estimatedMinutes * 60 },
-        streakDay: updatedUser.currentStreak,
-      },
-      create: {
+    // Check if daily stats exist for today
+    const existingDailyStatsResult = await db
+      .select()
+      .from(dailyStats)
+      .where(
+        and(
+          eq(dailyStats.userId, user.id),
+          eq(dailyStats.date, todayDateString),
+        ),
+      );
+
+    const existingDailyStats = existingDailyStatsResult[0];
+
+    if (existingDailyStats) {
+      await db
+        .update(dailyStats)
+        .set({
+          xpEarned: existingDailyStats.xpEarned + xpGained,
+          lessonsCompleted: existingDailyStats.lessonsCompleted + 1,
+          timeSpent:
+            existingDailyStats.timeSpent + lesson.estimatedMinutes * 60,
+          streakDay: updatedUser.currentStreak,
+          updatedAt: new Date(),
+        })
+        .where(eq(dailyStats.id, existingDailyStats.id));
+    } else {
+      await db.insert(dailyStats).values({
+        id: nanoid(),
         userId: user.id,
-        date: today,
+        date: todayDateString,
         xpEarned: xpGained,
         lessonsCompleted: 1,
         timeSpent: lesson.estimatedMinutes * 60,
         streakDay: updatedUser.currentStreak,
-      },
-    });
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
 
     // Check and award achievements
     await checkAndAwardAchievements(user.id, {
@@ -301,28 +367,43 @@ async function checkAndAwardAchievements(
   },
 ) {
   try {
-    // Get current user progress
-    const [userProgress, achievements] = await Promise.all([
-      db.userLessonProgress.findMany({
-        where: { userId, status: "completed" },
-        include: { lesson: true },
-      }),
-      db.achievement.findMany({
-        include: {
-          userAchievements: {
-            where: { userId },
-          },
-        },
-      }),
-    ]);
+    // Get current user progress with lessons
+    const userProgressWithLessons = await db
+      .select({
+        progressId: userLessonProgress.id,
+        bestScore: userLessonProgress.bestScore,
+        category: lessons.category,
+      })
+      .from(userLessonProgress)
+      .innerJoin(lessons, eq(userLessonProgress.lessonId, lessons.id))
+      .where(
+        and(
+          eq(userLessonProgress.userId, userId),
+          eq(userLessonProgress.status, "completed"),
+        ),
+      );
 
-    const completedLessons = userProgress.length;
-    const perfectScores = userProgress.filter(
+    // Get all achievements
+    const allAchievements = await db.select().from(achievements);
+
+    // Get user achievements for this user
+    const userAchievementsList = await db
+      .select()
+      .from(userAchievements)
+      .where(eq(userAchievements.userId, userId));
+
+    // Create a map for quick lookup
+    const userAchievementsMap = new Map(
+      userAchievementsList.map((ua) => [ua.achievementId, ua]),
+    );
+
+    const completedLessons = userProgressWithLessons.length;
+    const perfectScores = userProgressWithLessons.filter(
       (p) => p.bestScore === 100,
     ).length;
-    const categoryCounts = userProgress.reduce(
+    const categoryCounts = userProgressWithLessons.reduce(
       (acc, p) => {
-        acc[p.lesson.category] = (acc[p.lesson.category] || 0) + 1;
+        acc[p.category] = (acc[p.category] || 0) + 1;
         return acc;
       },
       {} as Record<string, number>,
@@ -330,8 +411,8 @@ async function checkAndAwardAchievements(
 
     const achievementsToAward = [];
 
-    for (const achievement of achievements) {
-      const userAchievement = achievement.userAchievements[0];
+    for (const achievement of allAchievements) {
+      const userAchievement = userAchievementsMap.get(achievement.id);
 
       // Skip if already earned
       if (userAchievement?.earnedAt) continue;
@@ -403,9 +484,11 @@ async function checkAndAwardAchievements(
         case "streak_50":
         case "streak_100":
           // Get current user to check their streak
-          const userForStreak = await db.user.findUnique({
-            where: { id: userId },
-          });
+          const userForStreakResult = await db
+            .select({ currentStreak: users.currentStreak })
+            .from(users)
+            .where(eq(users.id, userId));
+          const userForStreak = userForStreakResult[0];
           if (userForStreak) {
             newProgress = userForStreak.currentStreak;
             shouldAward =
@@ -433,33 +516,38 @@ async function checkAndAwardAchievements(
       shouldAward,
       newProgress,
     } of achievementsToAward) {
-      await db.userAchievement.upsert({
-        where: {
-          userId_achievementId: {
-            userId,
-            achievementId: achievement.id,
-          },
-        },
-        update: {
-          progress: newProgress,
-          earnedAt: shouldAward ? new Date() : null,
-        },
-        create: {
+      const existingUserAchievement = userAchievementsMap.get(achievement.id);
+
+      if (existingUserAchievement) {
+        // Update existing user achievement
+        await db
+          .update(userAchievements)
+          .set({
+            progress: newProgress,
+            earnedAt: shouldAward ? new Date() : null,
+          })
+          .where(eq(userAchievements.id, existingUserAchievement.id));
+      } else {
+        // Create new user achievement
+        await db.insert(userAchievements).values({
+          id: nanoid(),
           userId,
           achievementId: achievement.id,
           progress: newProgress,
           earnedAt: shouldAward ? new Date() : null,
-        },
-      });
+          createdAt: new Date(),
+        });
+      }
 
       // If achievement was earned, award XP
       if (shouldAward) {
-        await db.user.update({
-          where: { id: userId },
-          data: {
-            totalXp: { increment: achievement.xpReward },
-          },
-        });
+        await db
+          .update(users)
+          .set({
+            totalXp: sql`${users.totalXp} + ${achievement.xpReward}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId));
       }
     }
 

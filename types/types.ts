@@ -137,7 +137,6 @@ export interface DailyStats {
   updatedAt: Date;
 }
 
-
 export interface StudyGroup {
   id: string;
   name: string;

@@ -69,7 +69,9 @@ export default function MahalLanding() {
           <div className="flex items-center justify-between h-14 md:h-16">
             <div className="flex items-center gap-2 md:gap-3">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-base md:text-lg">🇵🇭</span>
+                <span className="text-white font-bold text-base md:text-lg">
+                  🇵🇭
+                </span>
               </div>
               <h1 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-blue-500 to-red-500 bg-clip-text text-transparent">
                 Mahal
@@ -84,7 +86,9 @@ export default function MahalLanding() {
                   </span>
                   <Link href="/dashboard">
                     <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg font-medium transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base">
-                      <span className="hidden sm:inline">Continue Learning</span>
+                      <span className="hidden sm:inline">
+                        Continue Learning
+                      </span>
                       <span className="sm:hidden">Continue</span>
                       <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
                     </button>
@@ -196,7 +200,9 @@ export default function MahalLanding() {
                 <GameCard className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/30">
                   <GameCardContent className="p-3 md:p-4 text-center">
                     <Trophy className="w-6 h-6 md:w-8 md:h-8 text-yellow-400 mx-auto mb-2" />
-                    <div className="font-bold text-foreground text-sm md:text-base">50+ Lessons</div>
+                    <div className="font-bold text-foreground text-sm md:text-base">
+                      50+ Lessons
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       Interactive content
                     </div>
@@ -218,7 +224,9 @@ export default function MahalLanding() {
                 <GameCard className="bg-gradient-to-br from-green-500/10 to-green-600/10 border-green-500/30">
                   <GameCardContent className="p-3 md:p-4 text-center">
                     <Users className="w-6 h-6 md:w-8 md:h-8 text-green-400 mx-auto mb-2" />
-                    <div className="font-bold text-foreground text-sm md:text-base">Community</div>
+                    <div className="font-bold text-foreground text-sm md:text-base">
+                      Community
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       Learn together
                     </div>

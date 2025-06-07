@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
 import { Badge } from "@/components/ui/badge";
 import { Volume2, Loader2, X } from "lucide-react";
+import { useTTS } from "@/lib/hooks/use-tts";
 
 interface ListeningExerciseProps {
   exercise: Exercise;
@@ -17,81 +18,14 @@ export function ListeningExercise({
 }: ListeningExerciseProps) {
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [playCount, setPlayCount] = useState(0);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  // Generate audio when component mounts
-  useEffect(() => {
-    generateAudio();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const generateAudio = async () => {
-    if (!exercise.text) return;
-
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/tts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: exercise.text,
-          voice: "rachel", // Eleven Labs voice
-        }),
-      });
-
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-      } else {
-        console.error("Failed to generate audio");
-        // Fallback to Web Speech API
-        speakText(exercise.text);
-      }
-    } catch (error) {
-      console.error("Error generating audio:", error);
-      // Fallback to Web Speech API
-      speakText(exercise.text);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const speakText = (text: string) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "tl-PH"; // Filipino
-      utterance.rate = 0.8;
-      utterance.pitch = 1;
-
-      utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = () => setIsPlaying(false);
-
-      speechSynthesis.speak(utterance);
-    }
-  };
+  const { speak, isLoading: ttsLoading, isPlaying } = useTTS();
 
   const handlePlayAudio = () => {
-    if (!audioUrl && !exercise.text) return;
+    if (!exercise.text || isPlaying || ttsLoading) return;
 
     setPlayCount((prev) => prev + 1);
-
-    if (audioUrl && audioRef.current) {
-      setIsPlaying(true);
-      audioRef.current.play();
-    } else if (exercise.text) {
-      speakText(exercise.text);
-    }
-  };
-
-  const handleAudioEnded = () => {
-    setIsPlaying(false);
+    speak(exercise.text);
   };
 
   const handleWordClick = (word: string) => {
@@ -136,10 +70,10 @@ export function ListeningExercise({
           <div className="flex flex-col items-center gap-4">
             <div
               className={`w-20 h-20 rounded-full flex items-center justify-center ${
-                isLoading ? "bg-muted" : "bg-blue-500"
+                ttsLoading ? "bg-muted" : "bg-blue-500"
               }`}
             >
-              {isLoading ? (
+              {ttsLoading ? (
                 <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
               ) : (
                 <Volume2 className="w-8 h-8 text-white" />
@@ -148,11 +82,11 @@ export function ListeningExercise({
 
             <GameButton
               onClick={handlePlayAudio}
-              disabled={isLoading || isPlaying || !canPlayAgain}
+              disabled={ttsLoading || isPlaying || !canPlayAgain}
               variant="primary"
               className="px-6 py-3"
             >
-              {isLoading
+              {ttsLoading
                 ? "Generating Audio..."
                 : isPlaying
                   ? "Playing..."
@@ -162,16 +96,6 @@ export function ListeningExercise({
             </GameButton>
           </div>
         </div>
-
-        {/* Hidden audio element for Eleven Labs audio */}
-        {audioUrl && (
-          <audio
-            ref={audioRef}
-            src={audioUrl}
-            onEnded={handleAudioEnded}
-            preload="auto"
-          />
-        )}
       </div>
 
       {/* Selected Words Display */}

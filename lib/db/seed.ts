@@ -1,7 +1,11 @@
-import { PrismaClient } from "@prisma/client";
-import { lessons } from "../data/lessons";
-
-const prisma = new PrismaClient();
+import { db } from "./index";
+import {
+  lessons as lessonsTable,
+  achievements as achievementsTable,
+} from "./schema";
+import { lessons } from "../../data/lessons";
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 async function main() {
   console.log("Seeding database...");
@@ -9,32 +13,41 @@ async function main() {
   // Create lessons from static data
   console.log("Creating lessons...");
   for (const lesson of lessons) {
-    await prisma.lesson.upsert({
-      where: { id: lesson.id.toString() },
-      update: {
-        title: lesson.title,
-        description: lesson.description,
-        difficultyLevel: "beginner", // Default for now
-        orderIndex: lesson.id,
-        category: lesson.category || "general",
-        estimatedMinutes: 10,
-        xpReward: lesson.exercises.reduce((sum, ex) => sum + ex.xp, 0),
-        exercises: lesson.exercises,
-        isPublished: true,
-      },
-      create: {
-        id: lesson.id.toString(),
-        title: lesson.title,
-        description: lesson.description,
-        difficultyLevel: "beginner",
-        orderIndex: lesson.id,
-        category: lesson.category || "general",
-        estimatedMinutes: 10,
-        xpReward: lesson.exercises.reduce((sum, ex) => sum + ex.xp, 0),
-        exercises: lesson.exercises,
-        isPublished: true,
-      },
-    });
+    const lessonId = lesson.id.toString();
+
+    // Check if lesson exists
+    const existingLesson = await db
+      .select()
+      .from(lessonsTable)
+      .where(eq(lessonsTable.id, lessonId))
+      .limit(1);
+
+    const lessonData = {
+      title: lesson.title,
+      description: lesson.description,
+      difficultyLevel: "beginner", // Default for now
+      orderIndex: lesson.id,
+      category: lesson.category || "general",
+      estimatedMinutes: 10,
+      xpReward: lesson.exercises.reduce((sum, ex) => sum + ex.xp, 0),
+      exercises: lesson.exercises,
+      isPublished: true,
+      updatedAt: new Date(),
+    };
+
+    if (existingLesson.length > 0) {
+      // Update existing lesson
+      await db
+        .update(lessonsTable)
+        .set(lessonData)
+        .where(eq(lessonsTable.id, lessonId));
+    } else {
+      // Create new lesson
+      await db.insert(lessonsTable).values({
+        id: lessonId,
+        ...lessonData,
+      });
+    }
   }
   console.log(`Created ${lessons.length} lessons.`);
 
@@ -360,11 +373,26 @@ async function main() {
   ];
 
   for (const achievement of achievements) {
-    await prisma.achievement.upsert({
-      where: { key: achievement.key },
-      update: achievement,
-      create: achievement,
-    });
+    // Check if achievement exists
+    const existingAchievement = await db
+      .select()
+      .from(achievementsTable)
+      .where(eq(achievementsTable.key, achievement.key))
+      .limit(1);
+
+    if (existingAchievement.length > 0) {
+      // Update existing achievement
+      await db
+        .update(achievementsTable)
+        .set(achievement)
+        .where(eq(achievementsTable.key, achievement.key));
+    } else {
+      // Create new achievement
+      await db.insert(achievementsTable).values({
+        id: nanoid(),
+        ...achievement,
+      });
+    }
   }
 
   console.log(
@@ -378,5 +406,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    console.log("Seed completed.");
   });

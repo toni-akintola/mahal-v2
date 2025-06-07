@@ -1,48 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import {
+  users,
+  friendships,
+  studyGroups,
+  studyGroupMembers,
+} from "@/lib/db/schema";
+import { eq, and, or, notInArray, ilike, desc, count, asc } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { nanoid } from "nanoid";
 import { UserService } from "@/lib/services/user-service";
 import type { FriendRequest } from "@/types/types";
-
-// Custom interfaces for database returns with Prisma includes
-interface FriendshipWithUser {
-  id: string;
-  userId: string;
-  friendId: string;
-  status: string;
-  createdAt: Date;
-  acceptedAt: Date | null;
-  user: {
-    id: string;
-    clerkUserId: string;
-    displayName: string | null;
-    imageUrl: string | null;
-    level: number;
-    currentStreak: number;
-    lastActiveAt: Date;
-  };
-}
-
-interface FriendshipWithFriend {
-  id: string;
-  userId: string;
-  friendId: string;
-  status: string;
-  createdAt: Date;
-  acceptedAt: Date | null;
-  friend: {
-    id: string;
-    clerkUserId: string;
-    displayName: string | null;
-    imageUrl: string | null;
-    level: number;
-    currentStreak: number;
-    lastActiveAt: Date;
-  };
-}
 
 // Helper function to get user and throw error if not found
 async function getRequiredUser(clerkUserId: string) {
@@ -67,25 +38,38 @@ export async function sendFriendRequest(friendClerkUserId: string) {
 
     // Get current user and target friend
     const currentUser = await getRequiredUser(currentClerkUserId);
-    const friendUser = await db.user.findUnique({
-      where: { clerkUserId: friendClerkUserId },
-    });
+    const friendUserResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, friendClerkUserId))
+      .limit(1);
 
-    if (!friendUser) {
+    if (friendUserResult.length === 0) {
       throw new Error("User not found");
     }
 
-    // Check if friendship already exists
-    const existingFriendship = await db.friendship.findFirst({
-      where: {
-        OR: [
-          { userId: currentUser.id, friendId: friendUser.id },
-          { userId: friendUser.id, friendId: currentUser.id },
-        ],
-      },
-    });
+    const friendUser = friendUserResult[0];
 
-    if (existingFriendship) {
+    // Check if friendship already exists
+    const existingFriendshipResult = await db
+      .select()
+      .from(friendships)
+      .where(
+        or(
+          and(
+            eq(friendships.userId, currentUser.id),
+            eq(friendships.friendId, friendUser.id),
+          ),
+          and(
+            eq(friendships.userId, friendUser.id),
+            eq(friendships.friendId, currentUser.id),
+          ),
+        ),
+      )
+      .limit(1);
+
+    if (existingFriendshipResult.length > 0) {
+      const existingFriendship = existingFriendshipResult[0];
       if (existingFriendship.status === "accepted") {
         throw new Error("Already friends");
       } else if (existingFriendship.status === "pending") {
@@ -96,12 +80,11 @@ export async function sendFriendRequest(friendClerkUserId: string) {
     }
 
     // Create friendship
-    await db.friendship.create({
-      data: {
-        userId: currentUser.id,
-        friendId: friendUser.id,
-        status: "pending",
-      },
+    await db.insert(friendships).values({
+      id: nanoid(),
+      userId: currentUser.id,
+      friendId: friendUser.id,
+      status: "pending",
     });
 
     revalidatePath("/dashboard");
@@ -128,19 +111,22 @@ export async function acceptFriendRequest(friendshipId: string) {
     const user = await getRequiredUser(clerkUserId);
 
     // Update friendship status
-    const friendship = await db.friendship.update({
-      where: {
-        id: friendshipId,
-        friendId: user.id, // Only the recipient can accept
-        status: "pending",
-      },
-      data: {
+    const friendshipResult = await db
+      .update(friendships)
+      .set({
         status: "accepted",
         acceptedAt: new Date(),
-      },
-    });
+      })
+      .where(
+        and(
+          eq(friendships.id, friendshipId),
+          eq(friendships.friendId, user.id), // Only the recipient can accept
+          eq(friendships.status, "pending"),
+        ),
+      )
+      .returning();
 
-    if (!friendship) {
+    if (friendshipResult.length === 0) {
       throw new Error("Friend request not found or already processed");
     }
 
@@ -168,13 +154,13 @@ export async function declineFriendRequest(friendshipId: string) {
     const user = await getRequiredUser(clerkUserId);
 
     // Delete the friendship request
-    await db.friendship.delete({
-      where: {
-        id: friendshipId,
-        friendId: user.id, // Only the recipient can decline
-        status: "pending",
-      },
-    });
+    await db.delete(friendships).where(
+      and(
+        eq(friendships.id, friendshipId),
+        eq(friendships.friendId, user.id), // Only the recipient can decline
+        eq(friendships.status, "pending"),
+      ),
+    );
 
     revalidatePath("/dashboard");
     return { success: true, message: "Friend request declined" };
@@ -200,15 +186,23 @@ export async function removeFriend(friendshipId: string) {
     const user = await getRequiredUser(clerkUserId);
 
     // Delete the friendship
-    await db.friendship.delete({
-      where: {
-        id: friendshipId,
-        OR: [
-          { userId: user.id, status: "accepted" },
-          { friendId: user.id, status: "accepted" },
-        ],
-      },
-    });
+    await db
+      .delete(friendships)
+      .where(
+        and(
+          eq(friendships.id, friendshipId),
+          or(
+            and(
+              eq(friendships.userId, user.id),
+              eq(friendships.status, "accepted"),
+            ),
+            and(
+              eq(friendships.friendId, user.id),
+              eq(friendships.status, "accepted"),
+            ),
+          ),
+        ),
+      );
 
     revalidatePath("/dashboard");
     return { success: true, message: "Friend removed successfully" };
@@ -231,65 +225,80 @@ export async function getFriendRequests() {
 
     const user = await getRequiredUser(clerkUserId);
 
+    // Create an alias for the user table to join with friendships
+    const senderUser = alias(users, "senderUser");
+    const receiverUser = alias(users, "receiverUser");
+
     // Get pending friend requests received by this user
-    const receivedRequests = await db.friendship.findMany({
-      where: {
-        friendId: user.id,
-        status: "pending",
-      },
-      include: {
+    const receivedRequests = await db
+      .select({
+        id: friendships.id,
+        userId: friendships.userId,
+        friendId: friendships.friendId,
+        status: friendships.status,
+        createdAt: friendships.createdAt,
+        acceptedAt: friendships.acceptedAt,
         user: {
-          select: {
-            id: true,
-            clerkUserId: true,
-            displayName: true,
-            imageUrl: true,
-            level: true,
-            currentStreak: true,
-            lastActiveAt: true,
-          },
+          id: senderUser.id,
+          clerkUserId: senderUser.clerkUserId,
+          displayName: senderUser.displayName,
+          imageUrl: senderUser.imageUrl,
+          level: senderUser.level,
+          currentStreak: senderUser.currentStreak,
+          lastActiveAt: senderUser.lastActiveAt,
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+      })
+      .from(friendships)
+      .innerJoin(senderUser, eq(friendships.userId, senderUser.id))
+      .where(
+        and(
+          eq(friendships.friendId, user.id),
+          eq(friendships.status, "pending"),
+        ),
+      )
+      .orderBy(desc(friendships.createdAt));
 
     // Get pending friend requests sent by this user
-    const sentRequests = await db.friendship.findMany({
-      where: {
-        userId: user.id,
-        status: "pending",
-      },
-      include: {
+    const sentRequests = await db
+      .select({
+        id: friendships.id,
+        userId: friendships.userId,
+        friendId: friendships.friendId,
+        status: friendships.status,
+        createdAt: friendships.createdAt,
+        acceptedAt: friendships.acceptedAt,
         friend: {
-          select: {
-            id: true,
-            clerkUserId: true,
-            displayName: true,
-            imageUrl: true,
-            level: true,
-            currentStreak: true,
-            lastActiveAt: true,
-          },
+          id: receiverUser.id,
+          clerkUserId: receiverUser.clerkUserId,
+          displayName: receiverUser.displayName,
+          imageUrl: receiverUser.imageUrl,
+          level: receiverUser.level,
+          currentStreak: receiverUser.currentStreak,
+          lastActiveAt: receiverUser.lastActiveAt,
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+      })
+      .from(friendships)
+      .innerJoin(receiverUser, eq(friendships.friendId, receiverUser.id))
+      .where(
+        and(eq(friendships.userId, user.id), eq(friendships.status, "pending")),
+      )
+      .orderBy(desc(friendships.createdAt));
 
     return {
-      received: receivedRequests.map((req: FriendshipWithUser): FriendRequest => ({
-        id: req.id,
-        user: req.user,
-        createdAt: req.createdAt,
-      })),
-      sent: sentRequests.map((req: FriendshipWithFriend): FriendRequest => ({
-        id: req.id,
-        user: req.friend,
-        createdAt: req.createdAt,
-      })),
+      received: receivedRequests.map(
+        (req): FriendRequest => ({
+          id: req.id,
+          user: req.user,
+          createdAt: req.createdAt,
+        }),
+      ),
+      sent: sentRequests.map(
+        (req): FriendRequest => ({
+          id: req.id,
+          user: req.friend,
+          createdAt: req.createdAt,
+        }),
+      ),
     };
   } catch (error) {
     console.error("Error getting friend requests:", error);
@@ -327,22 +336,25 @@ export async function createStudyGroup(
     const user = await getRequiredUser(clerkUserId);
 
     // Create study group
-    const studyGroup = await db.studyGroup.create({
-      data: {
+    const studyGroupResult = await db
+      .insert(studyGroups)
+      .values({
+        id: nanoid(),
         name,
         description,
         isPublic,
         maxMembers,
-      },
-    });
+      })
+      .returning();
+
+    const studyGroup = studyGroupResult[0];
 
     // Add creator as admin
-    await db.studyGroupMember.create({
-      data: {
-        userId: user.id,
-        studyGroupId: studyGroup.id,
-        role: "admin",
-      },
+    await db.insert(studyGroupMembers).values({
+      id: nanoid(),
+      userId: user.id,
+      studyGroupId: studyGroup.id,
+      role: "admin",
     });
 
     revalidatePath("/dashboard");
@@ -370,43 +382,53 @@ export async function joinStudyGroup(groupId: string) {
 
     const user = await getRequiredUser(clerkUserId);
 
-    // Check if group exists and has space
-    const studyGroup = await db.studyGroup.findUnique({
-      where: { id: groupId },
-      include: {
-        members: true,
-      },
-    });
+    // Check if group exists
+    const studyGroupResult = await db
+      .select()
+      .from(studyGroups)
+      .where(eq(studyGroups.id, groupId))
+      .limit(1);
 
-    if (!studyGroup) {
+    if (studyGroupResult.length === 0) {
       throw new Error("Study group not found");
     }
 
-    if (studyGroup.members.length >= studyGroup.maxMembers) {
+    const studyGroup = studyGroupResult[0];
+
+    // Count current members
+    const memberCountResult = await db
+      .select({ count: count() })
+      .from(studyGroupMembers)
+      .where(eq(studyGroupMembers.studyGroupId, groupId));
+
+    const memberCount = memberCountResult[0]?.count || 0;
+
+    if (memberCount >= studyGroup.maxMembers) {
       throw new Error("Study group is full");
     }
 
     // Check if already a member
-    const existingMember = await db.studyGroupMember.findUnique({
-      where: {
-        userId_studyGroupId: {
-          userId: user.id,
-          studyGroupId: groupId,
-        },
-      },
-    });
+    const existingMemberResult = await db
+      .select()
+      .from(studyGroupMembers)
+      .where(
+        and(
+          eq(studyGroupMembers.userId, user.id),
+          eq(studyGroupMembers.studyGroupId, groupId),
+        ),
+      )
+      .limit(1);
 
-    if (existingMember) {
+    if (existingMemberResult.length > 0) {
       throw new Error("Already a member of this study group");
     }
 
     // Add as member
-    await db.studyGroupMember.create({
-      data: {
-        userId: user.id,
-        studyGroupId: groupId,
-        role: "member",
-      },
+    await db.insert(studyGroupMembers).values({
+      id: nanoid(),
+      userId: user.id,
+      studyGroupId: groupId,
+      role: "member",
     });
 
     revalidatePath("/dashboard");
@@ -431,37 +453,35 @@ export async function leaveStudyGroup(groupId: string) {
     const user = await getRequiredUser(clerkUserId);
 
     // Remove membership
-    await db.studyGroupMember.delete({
-      where: {
-        userId_studyGroupId: {
-          userId: user.id,
-          studyGroupId: groupId,
-        },
-      },
-    });
+    await db
+      .delete(studyGroupMembers)
+      .where(
+        and(
+          eq(studyGroupMembers.userId, user.id),
+          eq(studyGroupMembers.studyGroupId, groupId),
+        ),
+      );
 
     // If this was the last admin, promote another member or delete group
-    const remainingMembers = await db.studyGroupMember.findMany({
-      where: { studyGroupId: groupId },
-    });
+    const remainingMembers = await db
+      .select()
+      .from(studyGroupMembers)
+      .where(eq(studyGroupMembers.studyGroupId, groupId))
+      .orderBy(asc(studyGroupMembers.joinedAt));
 
-    const remainingAdmins = remainingMembers.filter((m: { role: string; }) => (m as { role: string }).role === "admin");
+    const remainingAdmins = remainingMembers.filter((m) => m.role === "admin");
 
     if (remainingAdmins.length === 0 && remainingMembers.length > 0) {
       // Promote the oldest member to admin
-      const oldestMember = remainingMembers.sort(
-        (a: { joinedAt: Date; }, b: { joinedAt: Date; }) => (a as { joinedAt: Date }).joinedAt.getTime() - (b as { joinedAt: Date }).joinedAt.getTime(),
-      )[0];
+      const oldestMember = remainingMembers[0];
 
-      await db.studyGroupMember.update({
-        where: { id: oldestMember.id },
-        data: { role: "admin" },
-      });
+      await db
+        .update(studyGroupMembers)
+        .set({ role: "admin" })
+        .where(eq(studyGroupMembers.id, oldestMember.id));
     } else if (remainingMembers.length === 0) {
       // Delete empty group
-      await db.studyGroup.delete({
-        where: { id: groupId },
-      });
+      await db.delete(studyGroups).where(eq(studyGroups.id, groupId));
     }
 
     revalidatePath("/dashboard");
@@ -485,46 +505,58 @@ export async function getUserStudyGroups() {
 
     const user = await getRequiredUser(clerkUserId);
 
-    const memberships = await db.studyGroupMember.findMany({
-      where: { userId: user.id },
-      include: {
-        studyGroup: {
-          include: {
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    displayName: true,
-                    imageUrl: true,
-                    level: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        joinedAt: "desc",
-      },
-    });
+    // Get user's study group memberships with group details
+    const membershipResults = await db
+      .select({
+        membershipId: studyGroupMembers.id,
+        userRole: studyGroupMembers.role,
+        joinedAt: studyGroupMembers.joinedAt,
+        groupId: studyGroups.id,
+        groupName: studyGroups.name,
+        groupDescription: studyGroups.description,
+        groupIsPublic: studyGroups.isPublic,
+        groupMaxMembers: studyGroups.maxMembers,
+        groupCreatedAt: studyGroups.createdAt,
+      })
+      .from(studyGroupMembers)
+      .innerJoin(
+        studyGroups,
+        eq(studyGroupMembers.studyGroupId, studyGroups.id),
+      )
+      .where(eq(studyGroupMembers.userId, user.id))
+      .orderBy(desc(studyGroupMembers.joinedAt));
 
-    return memberships.map((membership: any) => ({
-      id: membership.studyGroup.id,
-      name: membership.studyGroup.name,
-      description: membership.studyGroup.description,
-      isPublic: membership.studyGroup.isPublic,
-      maxMembers: membership.studyGroup.maxMembers,
-      memberCount: membership.studyGroup.members.length,
-      members: membership.studyGroup.members.map((m: any) => ({
-        ...m.user,
-        role: m.role,
-        joinedAt: m.joinedAt,
-      })),
-      userRole: membership.role,
-      joinedAt: membership.joinedAt,
-    }));
+    // For each group, get all members
+    const groupsWithMembers = await Promise.all(
+      membershipResults.map(async (membership) => {
+        const membersResult = await db
+          .select({
+            id: users.id,
+            displayName: users.displayName,
+            imageUrl: users.imageUrl,
+            level: users.level,
+            role: studyGroupMembers.role,
+            joinedAt: studyGroupMembers.joinedAt,
+          })
+          .from(studyGroupMembers)
+          .innerJoin(users, eq(studyGroupMembers.userId, users.id))
+          .where(eq(studyGroupMembers.studyGroupId, membership.groupId));
+
+        return {
+          id: membership.groupId,
+          name: membership.groupName,
+          description: membership.groupDescription,
+          isPublic: membership.groupIsPublic,
+          maxMembers: membership.groupMaxMembers,
+          memberCount: membersResult.length,
+          members: membersResult,
+          userRole: membership.userRole,
+          joinedAt: membership.joinedAt,
+        };
+      }),
+    );
+
+    return groupsWithMembers;
   } catch (error) {
     console.error("Error getting user study groups:", error);
     return [];
@@ -541,58 +573,84 @@ export async function searchPublicStudyGroups(query: string = "") {
     const user = await getRequiredUser(clerkUserId);
 
     // Get user's current group memberships
-    const userMemberships = await db.studyGroupMember.findMany({
-      where: { userId: user.id },
-      select: { studyGroupId: true },
-    });
+    const userMemberships = await db
+      .select({ studyGroupId: studyGroupMembers.studyGroupId })
+      .from(studyGroupMembers)
+      .where(eq(studyGroupMembers.userId, user.id));
 
-    const userGroupIds = userMemberships.map((m: any) => m.studyGroupId);
+    const userGroupIds = userMemberships.map((m) => m.studyGroupId);
 
-    const studyGroups = await db.studyGroup.findMany({
-      where: {
-        isPublic: true,
-        id: { notIn: userGroupIds }, // Exclude groups user is already in
-        OR: query
-          ? [
-              { name: { contains: query, mode: "insensitive" } },
-              { description: { contains: query, mode: "insensitive" } },
-            ]
-          : undefined,
-      },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                displayName: true,
-                imageUrl: true,
-                level: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: [
-        { members: { _count: "desc" } }, // Most popular first
-        { createdAt: "desc" },
-      ],
-      take: 20,
-    });
+    // Build the where condition
+    const conditions = [eq(studyGroups.isPublic, true)];
 
-    return studyGroups.map((group: any) => ({
-      id: group.id,
-      name: group.name,
-      description: group.description,
-      maxMembers: group.maxMembers,
-      memberCount: group.members.length,
-      members: group.members.slice(0, 3).map((m: any) => ({
-        // Show first 3 members as preview
-        ...m.user,
-        role: m.role,
-      })),
-      createdAt: group.createdAt,
-    }));
+    // Exclude groups user is already in
+    if (userGroupIds.length > 0) {
+      conditions.push(notInArray(studyGroups.id, userGroupIds));
+    }
+
+    // Add search query condition if provided
+    if (query) {
+      conditions.push(ilike(studyGroups.name, `%${query}%`));
+    }
+
+    const whereCondition =
+      conditions.length > 1 ? and(...conditions) : conditions[0];
+
+    // First get study groups with member counts
+    const studyGroupsWithCounts = await db
+      .select({
+        id: studyGroups.id,
+        name: studyGroups.name,
+        description: studyGroups.description,
+        maxMembers: studyGroups.maxMembers,
+        createdAt: studyGroups.createdAt,
+        memberCount: count(studyGroupMembers.id),
+      })
+      .from(studyGroups)
+      .leftJoin(
+        studyGroupMembers,
+        eq(studyGroups.id, studyGroupMembers.studyGroupId),
+      )
+      .where(whereCondition)
+      .groupBy(
+        studyGroups.id,
+        studyGroups.name,
+        studyGroups.description,
+        studyGroups.maxMembers,
+        studyGroups.createdAt,
+      )
+      .orderBy(desc(count(studyGroupMembers.id)), desc(studyGroups.createdAt))
+      .limit(20);
+
+    // For each group, get first 3 members as preview
+    const groupsWithMembers = await Promise.all(
+      studyGroupsWithCounts.map(async (group) => {
+        const membersPreview = await db
+          .select({
+            id: users.id,
+            displayName: users.displayName,
+            imageUrl: users.imageUrl,
+            level: users.level,
+            role: studyGroupMembers.role,
+          })
+          .from(studyGroupMembers)
+          .innerJoin(users, eq(studyGroupMembers.userId, users.id))
+          .where(eq(studyGroupMembers.studyGroupId, group.id))
+          .limit(3);
+
+        return {
+          id: group.id,
+          name: group.name,
+          description: group.description,
+          maxMembers: group.maxMembers,
+          memberCount: group.memberCount,
+          members: membersPreview,
+          createdAt: group.createdAt,
+        };
+      }),
+    );
+
+    return groupsWithMembers;
   } catch (error) {
     console.error("Error searching study groups:", error);
     return [];

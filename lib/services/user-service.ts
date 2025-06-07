@@ -1,4 +1,8 @@
-import { db } from "@/lib/db";
+import { db } from "@/lib/db/index";
+import { users, dailyStats, friendships } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { nanoid } from "nanoid";
 import type { User } from "@/types/types";
 
 export interface OnboardingData {
@@ -16,41 +20,23 @@ export interface CreateUserData {
   imageUrl?: string;
 }
 
-interface FriendshipWithUsers {
-  userId: string;
-  friendId: string;
-  status: string;
-  user: {
-    id: string;
-    displayName: string | null;
-    imageUrl: string | null;
-    level: number;
-    currentStreak: number;
-    lastActiveAt: Date;
-  };
-  friend: {
-    id: string;
-    displayName: string | null;
-    imageUrl: string | null;
-    level: number;
-    currentStreak: number;
-    lastActiveAt: Date;
-  };
-}
-
 export class UserService {
   // Create or get user from database
   static async createOrGetUser(userData: CreateUserData): Promise<User> {
-    const existingUser = await db.user.findUnique({
-      where: { clerkUserId: userData.clerkUserId },
-    });
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userData.clerkUserId))
+      .limit(1);
 
-    if (existingUser) {
-      return existingUser;
+    if (existingUser.length > 0) {
+      return existingUser[0] as User;
     }
 
-    return await db.user.create({
-      data: {
+    const result = await db
+      .insert(users)
+      .values({
+        id: nanoid(),
         clerkUserId: userData.clerkUserId,
         email: userData.email,
         firstName: userData.firstName,
@@ -58,8 +44,10 @@ export class UserService {
         imageUrl: userData.imageUrl,
         displayName:
           userData.firstName || userData.email?.split("@")[0] || "Learner",
-      },
-    });
+      })
+      .returning();
+
+    return result[0] as User;
   }
 
   // Complete onboarding process
@@ -67,23 +55,31 @@ export class UserService {
     clerkUserId: string,
     onboardingData: OnboardingData,
   ): Promise<User> {
-    return await db.user.update({
-      where: { clerkUserId },
-      data: {
+    const result = await db
+      .update(users)
+      .set({
         onboardingCompleted: true,
         motivation: onboardingData.motivation,
         experience: onboardingData.experience,
         goals: onboardingData.goals,
         dailyTimeCommitment: onboardingData.dailyTimeCommitment,
-      },
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning();
+
+    return result[0] as User;
   }
 
   // Get user by Clerk ID
   static async getUserByClerkId(clerkUserId: string): Promise<User | null> {
-    return await db.user.findUnique({
-      where: { clerkUserId },
-    });
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
+
+    return result.length > 0 ? (result[0] as User) : null;
   }
 
   // Update user XP and level
@@ -91,82 +87,105 @@ export class UserService {
     clerkUserId: string,
     xpGained: number,
   ): Promise<User> {
-    const user = await db.user.findUnique({
-      where: { clerkUserId },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
 
-    if (!user) {
+    if (userResult.length === 0) {
       throw new Error("User not found");
     }
 
+    const user = userResult[0];
     const newTotalXp = user.totalXp + xpGained;
     const newLevel = Math.floor(newTotalXp / 100) + 1; // 100 XP per level
 
-    return await db.user.update({
-      where: { clerkUserId },
-      data: {
+    const result = await db
+      .update(users)
+      .set({
         totalXp: newTotalXp,
         level: newLevel,
-        lastXpGainedAt: new Date(), // Track when user last gained XP
+        lastXpGainedAt: new Date(),
         lastActiveAt: new Date(),
-      },
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning();
+
+    return result[0] as User;
   }
 
   // Check and update streak based on XP activity
   static async checkAndUpdateStreak(clerkUserId: string): Promise<User> {
-    const user = await db.user.findUnique({
-      where: { clerkUserId },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
 
-    if (!user) {
+    if (userResult.length === 0) {
       throw new Error("User not found");
     }
 
+    const user = userResult[0];
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     // If user has never gained XP, set streak to 1 (they're logged in)
     if (!user.lastXpGainedAt) {
-      return await db.user.update({
-        where: { clerkUserId },
-        data: {
+      const result = await db
+        .update(users)
+        .set({
           currentStreak: 1,
           longestStreak: Math.max(user.longestStreak, 1),
           lastActiveAt: now,
-        },
-      });
+          updatedAt: now,
+        })
+        .where(eq(users.clerkUserId, clerkUserId))
+        .returning();
+      return result[0] as User;
     }
 
     // If it's been >= 24 hours since last XP gain, reset streak to 1
     if (user.lastXpGainedAt < twentyFourHoursAgo) {
-      return await db.user.update({
-        where: { clerkUserId },
-        data: {
+      const result = await db
+        .update(users)
+        .set({
           currentStreak: 1,
           lastActiveAt: now,
-        },
-      });
+          updatedAt: now,
+        })
+        .where(eq(users.clerkUserId, clerkUserId))
+        .returning();
+      return result[0] as User;
     }
 
     // Otherwise, just update last active time and return current user
-    return await db.user.update({
-      where: { clerkUserId },
-      data: {
+    const result = await db
+      .update(users)
+      .set({
         lastActiveAt: now,
-      },
-    });
+        updatedAt: now,
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning();
+    return result[0] as User;
   }
 
   // Update streak with daily stats logic (for lesson completion)
   static async updateStreakOnXpGain(clerkUserId: string): Promise<User> {
-    const user = await db.user.findUnique({
-      where: { clerkUserId },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
 
-    if (!user) {
+    if (userResult.length === 0) {
       throw new Error("User not found");
     }
+
+    const user = userResult[0];
 
     // Check if user was active yesterday
     const today = new Date();
@@ -175,24 +194,33 @@ export class UserService {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const yesterdayStats = await db.dailyStats.findUnique({
-      where: {
-        userId_date: {
-          userId: user.id,
-          date: yesterday,
-        },
-      },
-    });
+    const yesterdayStatsResult = await db
+      .select()
+      .from(dailyStats)
+      .where(
+        and(
+          eq(dailyStats.userId, user.id),
+          eq(dailyStats.date, yesterday.toISOString().split("T")[0]),
+        ),
+      )
+      .limit(1);
+
+    const yesterdayStats =
+      yesterdayStatsResult.length > 0 ? yesterdayStatsResult[0] : null;
 
     // Check today's activity (before this action)
-    const todayStats = await db.dailyStats.findUnique({
-      where: {
-        userId_date: {
-          userId: user.id,
-          date: today,
-        },
-      },
-    });
+    const todayStatsResult = await db
+      .select()
+      .from(dailyStats)
+      .where(
+        and(
+          eq(dailyStats.userId, user.id),
+          eq(dailyStats.date, today.toISOString().split("T")[0]),
+        ),
+      )
+      .limit(1);
+
+    const todayStats = todayStatsResult.length > 0 ? todayStatsResult[0] : null;
 
     let newStreak = 1;
     if (todayStats && todayStats.xpEarned > 0) {
@@ -208,82 +236,108 @@ export class UserService {
 
     const longestStreak = Math.max(user.longestStreak, newStreak);
 
-    return await db.user.update({
-      where: { clerkUserId },
-      data: {
+    const result = await db
+      .update(users)
+      .set({
         currentStreak: newStreak,
         longestStreak,
         lastActiveAt: new Date(),
         lastXpGainedAt: new Date(),
-      },
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(users.clerkUserId, clerkUserId))
+      .returning();
+
+    return result[0] as User;
   }
 
   // Get leaderboard
   static async getLeaderboard(limit: number = 10) {
-    return await db.user.findMany({
-      select: {
-        id: true,
-        displayName: true,
-        imageUrl: true,
-        level: true,
-        totalXp: true,
-        currentStreak: true,
-      },
-      orderBy: [{ totalXp: "desc" }, { currentStreak: "desc" }],
-      take: limit,
-    });
+    const result = await db
+      .select({
+        id: users.id,
+        displayName: users.displayName,
+        imageUrl: users.imageUrl,
+        level: users.level,
+        totalXp: users.totalXp,
+        currentStreak: users.currentStreak,
+      })
+      .from(users)
+      .orderBy(desc(users.totalXp), desc(users.currentStreak))
+      .limit(limit);
+
+    return result;
   }
 
   // Get user's friends
   static async getUserFriends(clerkUserId: string) {
-    const user = await db.user.findUnique({
-      where: { clerkUserId },
-    });
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
 
-    if (!user) {
+    if (userResult.length === 0) {
       throw new Error("User not found");
     }
 
-    const friendships = await db.friendship.findMany({
-      where: {
-        OR: [
-          { userId: user.id, status: "accepted" },
-          { friendId: user.id, status: "accepted" },
-        ],
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            displayName: true,
-            imageUrl: true,
-            level: true,
-            currentStreak: true,
-            lastActiveAt: true,
-          },
-        },
-        friend: {
-          select: {
-            id: true,
-            displayName: true,
-            imageUrl: true,
-            level: true,
-            currentStreak: true,
-            lastActiveAt: true,
-          },
-        },
-      },
-    });
+    const user = userResult[0];
 
-    return friendships.map((friendship: FriendshipWithUsers) => {
-      const friend =
-        friendship.userId === user.id ? friendship.friend : friendship.user;
-      return {
-        ...friend,
-        status: this.getUserOnlineStatus(friend.lastActiveAt),
-      };
-    });
+    // Create aliases for the user table to perform self-joins
+    const friendUser = alias(users, "friendUser");
+    const requesterUser = alias(users, "requesterUser");
+
+    // Get friendships where current user is the requester
+    const sentFriendships = await db
+      .select({
+        id: friendUser.id,
+        displayName: friendUser.displayName,
+        imageUrl: friendUser.imageUrl,
+        level: friendUser.level,
+        currentStreak: friendUser.currentStreak,
+        lastActiveAt: friendUser.lastActiveAt,
+      })
+      .from(friendships)
+      .innerJoin(friendUser, eq(friendships.friendId, friendUser.id))
+      .where(
+        and(
+          eq(friendships.userId, user.id),
+          eq(friendships.status, "accepted"),
+        ),
+      );
+
+    // Get friendships where current user is the receiver
+    const receivedFriendships = await db
+      .select({
+        id: requesterUser.id,
+        displayName: requesterUser.displayName,
+        imageUrl: requesterUser.imageUrl,
+        level: requesterUser.level,
+        currentStreak: requesterUser.currentStreak,
+        lastActiveAt: requesterUser.lastActiveAt,
+      })
+      .from(friendships)
+      .innerJoin(requesterUser, eq(friendships.userId, requesterUser.id))
+      .where(
+        and(
+          eq(friendships.friendId, user.id),
+          eq(friendships.status, "accepted"),
+        ),
+      );
+
+    // Combine and deduplicate friends
+    const allFriends = [...sentFriendships, ...receivedFriendships];
+
+    // Remove duplicates based on user ID
+    const uniqueFriends = allFriends.filter(
+      (friend, index, self) =>
+        index === self.findIndex((f) => f.id === friend.id),
+    );
+
+    return uniqueFriends.map((friend) => ({
+      ...friend,
+      status: this.getUserOnlineStatus(friend.lastActiveAt),
+    }));
   }
 
   // Helper to determine online status

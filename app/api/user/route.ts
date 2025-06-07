@@ -1,29 +1,46 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { UserService } from "@/lib/services/user-service";
 
 export async function GET() {
   try {
     const { userId } = await auth();
-    if (!userId) {
+    const clerkUser = await currentUser();
+
+    if (!userId || !clerkUser) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    // Try to get user from database first
+    let user = await UserService.getUserByClerkId(userId);
+
+    // If user doesn't exist, create them (fallback for webhook)
+    if (!user) {
+      console.log("User not found in database, creating:", userId);
+      user = await UserService.createOrGetUser({
+        clerkUserId: userId,
+        email: clerkUser.primaryEmailAddress?.emailAddress,
+        firstName: clerkUser.firstName || undefined,
+        lastName: clerkUser.lastName || undefined,
+        imageUrl: clerkUser.imageUrl,
+      });
+    }
+
     // Check and update user streak on every visit
-    const user = await UserService.checkAndUpdateStreak(userId);
+    const updatedUser = await UserService.checkAndUpdateStreak(userId);
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        clerkUserId: user.clerkUserId,
-        displayName: user.displayName,
-        level: user.level,
-        totalXp: user.totalXp,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        hearts: user.hearts,
-        onboardingCompleted: user.onboardingCompleted,
-        lastActiveAt: user.lastActiveAt,
+        id: updatedUser.id,
+        clerkUserId: updatedUser.clerkUserId,
+        displayName: updatedUser.displayName,
+        level: updatedUser.level,
+        totalXp: updatedUser.totalXp,
+        currentStreak: updatedUser.currentStreak,
+        longestStreak: updatedUser.longestStreak,
+        hearts: updatedUser.hearts,
+        onboardingCompleted: updatedUser.onboardingCompleted,
+        lastActiveAt: updatedUser.lastActiveAt,
       },
     });
   } catch (error) {

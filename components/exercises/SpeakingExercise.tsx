@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Exercise } from "@/types/types";
 import { GameButton } from "@/components/ui/game-button";
 import { Mic, MicOff, Volume2, Loader2 } from "lucide-react";
+import { useTTS } from "@/lib/hooks/use-tts";
 
 // TypeScript interfaces for Web Speech API
 interface SpeechRecognitionEvent {
@@ -71,6 +72,7 @@ export function SpeakingExercise({
   const [isSupported, setIsSupported] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const { speak, isLoading: ttsLoading } = useTTS();
 
   useEffect(() => {
     // Check if speech recognition is supported
@@ -134,12 +136,8 @@ export function SpeakingExercise({
 
   const playTargetAudio = () => {
     const textToSpeak = exercise.text || exercise.question;
-    if ("speechSynthesis" in window && textToSpeak) {
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = "tl-PH"; // Filipino
-      utterance.rate = 0.8;
-      utterance.pitch = 1;
-      speechSynthesis.speak(utterance);
+    if (textToSpeak) {
+      speak(textToSpeak);
     }
   };
 
@@ -239,8 +237,13 @@ export function SpeakingExercise({
               onClick={playTargetAudio}
               variant="ghost"
               className="p-2"
+              disabled={ttsLoading}
             >
-              <Volume2 className="w-6 h-6" />
+              {ttsLoading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <Volume2 className="w-6 h-6" />
+              )}
             </GameButton>
           </div>
 

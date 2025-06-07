@@ -2,8 +2,11 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { users, userLessonProgress, dailyStats } from "@/lib/db/schema";
 import { lessons } from "@/data/lessons";
 import { UserService } from "@/lib/services/user-service";
+import { eq, and, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 // Custom interfaces to replace Prisma types
 interface UserLessonProgress {
@@ -26,16 +29,19 @@ export async function getUserLessons() {
     const { userId } = await auth();
     if (!userId) throw new Error("Not authenticated");
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId))
+      .limit(1);
 
-    if (!user) throw new Error("User not found");
+    if (!user.length) throw new Error("User not found");
 
     // Get user progress for all lessons
-    const userProgress = await db.userLessonProgress.findMany({
-      where: { userId: user.id },
-    });
+    const userProgress = await db
+      .select()
+      .from(userLessonProgress)
+      .where(eq(userLessonProgress.userId, user[0].id));
 
     // Create a map for quick lookup
     const progressMap = new Map(
@@ -60,12 +66,14 @@ export async function getUserLessons() {
       }
     };
 
-    const startIndex = getStartingLessonIndex(user.experience);
+    const startIndex = getStartingLessonIndex(user[0].experience);
     const availableLessons = lessons.slice(startIndex);
 
     // Combine static lesson data with user progress
     return availableLessons.map((lesson) => {
-      const progress = progressMap.get(lesson.id.toString()) as UserLessonProgress | undefined;
+      const progress = progressMap.get(lesson.id.toString()) as
+        | UserLessonProgress
+        | undefined;
       return {
         ...lesson,
         completed: progress?.status === "completed",
@@ -87,43 +95,54 @@ export async function startLesson(lessonId: string) {
     const { userId } = await auth();
     if (!userId) throw new Error("Not authenticated");
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId))
+      .limit(1);
 
-    if (!user) throw new Error("User not found");
+    if (!user.length) throw new Error("User not found");
 
     // Check if lesson progress already exists
-    let progress = await db.userLessonProgress.findUnique({
-      where: {
-        userId_lessonId: {
-          userId: user.id,
-          lessonId: lessonId,
-        },
-      },
-    });
+    const progress = await db
+      .select()
+      .from(userLessonProgress)
+      .where(
+        and(
+          eq(userLessonProgress.userId, user[0].id),
+          eq(userLessonProgress.lessonId, lessonId),
+        ),
+      )
+      .limit(1);
 
     // Create or update progress
-    if (!progress) {
-      progress = await db.userLessonProgress.create({
-        data: {
-          userId: user.id,
+    if (!progress.length) {
+      const newProgress = await db
+        .insert(userLessonProgress)
+        .values({
+          id: nanoid(),
+          userId: user[0].id,
           lessonId: lessonId,
           status: "in_progress",
           startedAt: new Date(),
-        },
-      });
-    } else if (progress.status === "pending") {
-      progress = await db.userLessonProgress.update({
-        where: { id: progress.id },
-        data: {
+          updatedAt: new Date(),
+        })
+        .returning();
+      return newProgress[0];
+    } else if (progress[0].status === "pending") {
+      const updatedProgress = await db
+        .update(userLessonProgress)
+        .set({
           status: "in_progress",
           startedAt: new Date(),
-        },
-      });
+          updatedAt: new Date(),
+        })
+        .where(eq(userLessonProgress.id, progress[0].id))
+        .returning();
+      return updatedProgress[0];
     }
 
-    return progress;
+    return progress[0];
   } catch (error) {
     console.error("Error starting lesson:", error);
     throw error;
@@ -140,24 +159,28 @@ export async function updateExerciseProgress(
     const { userId } = await auth();
     if (!userId) throw new Error("Not authenticated");
 
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, userId))
+      .limit(1);
 
-    if (!user) throw new Error("User not found");
+    if (!user.length) throw new Error("User not found");
 
     // Update user XP and streak
     const updatedUser = await UserService.updateUserXP(userId, xpEarned);
 
     // Find or create lesson progress
-    let progress = await db.userLessonProgress.findUnique({
-      where: {
-        userId_lessonId: {
-          userId: user.id,
-          lessonId: lessonId,
-        },
-      },
-    });
+    const progress = await db
+      .select()
+      .from(userLessonProgress)
+      .where(
+        and(
+          eq(userLessonProgress.userId, user[0].id),
+          eq(userLessonProgress.lessonId, lessonId),
+        ),
+      )
+      .limit(1);
 
     // Calculate progress percentage if we have exercise info
     let progressPercentage = 0;
@@ -167,60 +190,84 @@ export async function updateExerciseProgress(
       );
     }
 
-    if (!progress) {
+    let progressResult;
+    if (!progress.length) {
       // Create new progress if it doesn't exist
-      progress = await db.userLessonProgress.create({
-        data: {
-          userId: user.id,
+      const newProgress = await db
+        .insert(userLessonProgress)
+        .values({
+          id: nanoid(),
+          userId: user[0].id,
           lessonId: lessonId,
           status: "in_progress",
           progressPercentage: progressPercentage,
           startedAt: new Date(),
           attempts: 1,
-        },
-      });
+          updatedAt: new Date(),
+        })
+        .returning();
+      progressResult = newProgress[0];
     } else {
       // Update existing progress
-      progress = await db.userLessonProgress.update({
-        where: { id: progress.id },
-        data: {
-          attempts: progress.attempts + 1,
+      const updatedProgress = await db
+        .update(userLessonProgress)
+        .set({
+          attempts: progress[0].attempts + 1,
           progressPercentage: Math.max(
-            progress.progressPercentage || 0,
+            progress[0].progressPercentage || 0,
             progressPercentage,
           ),
           status: "in_progress",
-        },
-      });
+          updatedAt: new Date(),
+        })
+        .where(eq(userLessonProgress.id, progress[0].id))
+        .returning();
+      progressResult = updatedProgress[0];
     }
 
     // Update daily stats with XP
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    await db.dailyStats.upsert({
-      where: {
-        userId_date: {
-          userId: user.id,
-          date: today,
-        },
-      },
-      update: {
-        xpEarned: { increment: xpEarned },
-      },
-      create: {
-        userId: user.id,
-        date: today,
+    // Check if daily stats exist for today
+    const existingDailyStats = await db
+      .select()
+      .from(dailyStats)
+      .where(
+        and(
+          eq(dailyStats.userId, user[0].id),
+          eq(dailyStats.date, today.toISOString().split("T")[0]),
+        ),
+      )
+      .limit(1);
+
+    if (existingDailyStats.length) {
+      // Update existing daily stats
+      await db
+        .update(dailyStats)
+        .set({
+          xpEarned: sql`${dailyStats.xpEarned} + ${xpEarned}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(dailyStats.id, existingDailyStats[0].id));
+    } else {
+      // Create new daily stats
+      await db.insert(dailyStats).values({
+        id: nanoid(),
+        userId: user[0].id,
+        date: today.toISOString().split("T")[0],
         xpEarned: xpEarned,
         lessonsCompleted: 0,
-      },
-    });
+        updatedAt: new Date(),
+      });
+    }
 
     return {
-      progress,
+      progress: progressResult,
       userXp: updatedUser.totalXp,
       leveledUp:
-        Math.floor(updatedUser.totalXp / 100) > Math.floor(user.totalXp / 100),
+        Math.floor(updatedUser.totalXp / 100) >
+        Math.floor(user[0].totalXp / 100),
     };
   } catch (error) {
     console.error("Error updating exercise progress:", error);

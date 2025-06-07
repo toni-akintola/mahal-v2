@@ -23,6 +23,7 @@ import {
   getUserStats,
   getLeaderboard,
 } from "@/lib/actions/achievement-actions";
+import { users } from "@/lib/db/schema";
 import type { Exercise } from "@/types/types";
 import {
   Flame,
@@ -49,10 +50,12 @@ import {
   HelpCircle,
   Lightbulb,
   Volume2,
+  Settings,
 } from "lucide-react";
 import { SocialDashboard } from "@/components/social/SocialDashboard";
+import { UserSettingsModal } from "@/components/ui/UserSettingsModal";
 
-// Types
+// Types using Drizzle schema
 interface UserLesson {
   id: number;
   title: string;
@@ -80,18 +83,11 @@ interface UserAchievement {
 }
 
 interface UserStats {
-  level: number;
-  totalXp: number;
-  currentStreak: number;
-  longestStreak: number;
-  hearts: number;
+  user: typeof users.$inferSelect;
   completedLessons: number;
   todayXp: number;
   todayLessons: number;
   dailyXpGoal: number;
-  motivation?: string | null;
-  experience?: string | null;
-  goals?: string[];
 }
 
 interface LeaderboardEntry {
@@ -167,6 +163,24 @@ function getGoalTitle(goalId: string): string {
   }
 }
 
+// Helper function for time commitment descriptions
+function getTimeCommitmentDescription(timeCommitment: string): string {
+  switch (timeCommitment) {
+    case "5-minutes":
+      return "Quick daily practice";
+    case "10-minutes":
+      return "Short but consistent learning";
+    case "15-minutes":
+      return "Balanced daily commitment";
+    case "30-minutes":
+      return "Serious about learning";
+    case "1-hour":
+      return "Intensive learning mode";
+    default:
+      return "Personalized for your schedule";
+  }
+}
+
 // Icon mapping for achievements
 const iconMap: Record<string, React.ReactNode> = {
   BookOpen: <BookOpen className="w-6 h-6" />,
@@ -198,6 +212,7 @@ export default function MahalDashboard() {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   const router = useRouter();
   const { isSignedIn } = useUser();
@@ -257,6 +272,32 @@ export default function MahalDashboard() {
     }
   };
 
+  const handleSettingsSave = async (updates: {
+    motivation: string;
+    goals: string[];
+    dailyTimeCommitment: string;
+  }) => {
+    try {
+      const response = await fetch("/api/user/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update settings");
+      }
+
+      // Reload dashboard data to reflect changes
+      await loadDashboardData();
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      throw error;
+    }
+  };
+
   if (loading || !userStats) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -279,26 +320,47 @@ export default function MahalDashboard() {
           <div className="flex items-center gap-2 md:gap-3">
             <Link href="/">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-base md:text-lg">🇵🇭</span>
+                <span className="text-white font-bold text-base md:text-lg">
+                  🇵🇭
+                </span>
               </div>
             </Link>
-            <h1 className="text-xl md:text-2xl font-semibold text-foreground">Mahal</h1>
+            <h1 className="text-xl md:text-2xl font-semibold text-foreground">
+              Mahal
+            </h1>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <StreakCounter value={userStats.currentStreak} />
-            <XPCounter value={`${userStats.totalXp} XP`} />
+            <StreakCounter value={userStats.user.currentStreak} />
+            <XPCounter value={`${userStats.user.totalXp} XP`} />
             <Badge
               variant="outline"
               className="font-medium text-muted-foreground border-border text-xs md:text-sm"
             >
               <span className="hidden sm:inline">Level </span>
               <span className="sm:hidden">L</span>
-              {userStats.level}
+              {userStats.user.level}
             </Badge>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              title="Settings"
+            >
+              <Settings className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground hover:text-foreground" />
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <UserSettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          user={userStats.user}
+          onSave={handleSettingsSave}
+        />
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-8">
@@ -355,13 +417,13 @@ export default function MahalDashboard() {
                   <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-2">
                     Your Learning Journey
                   </h2>
-                  {userStats.motivation && (
+                  {userStats.user.motivation && (
                     <p className="text-muted-foreground text-sm md:text-base">
-                      {getMotivationMessage(userStats.motivation)} • Level{" "}
-                      {userStats.level}
+                      {getMotivationMessage(userStats.user.motivation)} • Level{" "}
+                      {userStats.user.level}
                     </p>
                   )}
-                  {!userStats.motivation && (
+                  {!userStats.user.motivation && (
                     <p className="text-muted-foreground text-sm md:text-base">
                       Continue mastering Tagalog with interactive lessons
                     </p>
@@ -495,6 +557,23 @@ export default function MahalDashboard() {
                           reach today&apos;s goal
                         </p>
                       )}
+                      {/* Show personalized goal info */}
+                      <div className="border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground">
+                          🎯 Goal personalized for{" "}
+                          <span className="text-foreground font-medium">
+                            {userStats.user.dailyTimeCommitment
+                              ? getTimeCommitmentDescription(
+                                  userStats.user.dailyTimeCommitment,
+                                )
+                              : "your time commitment"}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Level {userStats.user.level} • Adjusted for your
+                          progress
+                        </p>
+                      </div>
                     </div>
                   </GameCardContent>
                 </GameCard>
@@ -514,14 +593,16 @@ export default function MahalDashboard() {
                       <div className="flex items-center gap-1">
                         <Flame className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
                         <span className="font-semibold text-foreground text-sm">
-                          {userStats.currentStreak} days
+                          {userStats.user.currentStreak} days
                         </span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground text-sm">Total XP</span>
+                      <span className="text-muted-foreground text-sm">
+                        Total XP
+                      </span>
                       <span className="font-semibold text-foreground text-sm">
-                        {userStats.totalXp}
+                        {userStats.user.totalXp}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -537,14 +618,14 @@ export default function MahalDashboard() {
                         Longest Streak
                       </span>
                       <span className="font-semibold text-foreground text-sm">
-                        {userStats.longestStreak} days
+                        {userStats.user.longestStreak} days
                       </span>
                     </div>
                   </GameCardContent>
                 </GameCard>
 
                 {/* Goals Progress */}
-                {userStats.goals && userStats.goals.length > 0 && (
+                {userStats.user.goals && userStats.user.goals.length > 0 && (
                   <GameCard>
                     <GameCardHeader>
                       <GameCardTitle className="text-foreground flex items-center gap-2 text-base md:text-lg">
@@ -553,7 +634,7 @@ export default function MahalDashboard() {
                       </GameCardTitle>
                     </GameCardHeader>
                     <GameCardContent className="space-y-3">
-                      {userStats.goals.slice(0, 3).map((goal) => (
+                      {userStats.user.goals.slice(0, 3).map((goal) => (
                         <div key={goal} className="flex items-center gap-3">
                           <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
                           <span className="text-sm text-foreground">
@@ -561,9 +642,9 @@ export default function MahalDashboard() {
                           </span>
                         </div>
                       ))}
-                      {userStats.goals.length > 3 && (
+                      {userStats.user.goals.length > 3 && (
                         <p className="text-xs text-muted-foreground">
-                          +{userStats.goals.length - 3} more goals
+                          +{userStats.user.goals.length - 3} more goals
                         </p>
                       )}
                     </GameCardContent>
@@ -824,6 +905,37 @@ export default function MahalDashboard() {
                         </li>
                       </ul>
                     </div>
+
+                    <div className="bg-purple-500/10 rounded-xl p-4 border-2 border-purple-500/20">
+                      <h4 className="font-semibold text-foreground mb-2">
+                        🎯 Personalized Goals
+                      </h4>
+                      <ul className="space-y-2 text-sm text-muted-foreground">
+                        <li>
+                          •{" "}
+                          <strong className="text-foreground">
+                            Time-based goals:
+                          </strong>{" "}
+                          Your daily XP target is set based on your time
+                          commitment from onboarding
+                        </li>
+                        <li>
+                          •{" "}
+                          <strong className="text-foreground">
+                            Level scaling:
+                          </strong>{" "}
+                          Goals automatically increase as you level up to
+                          maintain challenge
+                        </li>
+                        <li>
+                          •{" "}
+                          <strong className="text-foreground">
+                            Flexible learning:
+                          </strong>{" "}
+                          From 25 XP (5 mins) to 150+ XP (1+ hour) daily targets
+                        </li>
+                      </ul>
+                    </div>
                   </GameCardContent>
                 </GameCard>
               </div>
@@ -969,8 +1081,9 @@ export default function MahalDashboard() {
                         Stay Consistent
                       </h4>
                       <p className="text-sm text-muted-foreground">
-                        Set a daily XP goal and maintain your streak. Even 10
-                        minutes daily is better than long cramming sessions.
+                        Your daily XP goal is personalized based on your time
+                        commitment. Consistency beats intensity - stick to your
+                        schedule for the best results.
                       </p>
                     </div>
 

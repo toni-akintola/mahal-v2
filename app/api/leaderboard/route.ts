@@ -1,23 +1,23 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const leaderboard = await db.user.findMany({
-      select: {
-        id: true,
-        displayName: true,
-        imageUrl: true,
-        level: true,
-        totalXp: true,
-        currentStreak: true,
-      },
-      orderBy: [{ totalXp: "desc" }, { currentStreak: "desc" }],
-      take: 10,
-      where: {
-        onboardingCompleted: true,
-      },
-    });
+    const leaderboard = await db
+      .select({
+        id: users.id,
+        displayName: users.displayName,
+        imageUrl: users.imageUrl,
+        level: users.level,
+        totalXp: users.totalXp,
+        currentStreak: users.currentStreak,
+      })
+      .from(users)
+      .where(eq(users.onboardingCompleted, true))
+      .orderBy(desc(users.totalXp), desc(users.currentStreak))
+      .limit(10);
 
     // Add rank to each user
     const rankedLeaderboard = leaderboard.map((user, index) => ({

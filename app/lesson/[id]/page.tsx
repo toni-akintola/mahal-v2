@@ -228,18 +228,28 @@ export default function LessonPage() {
 
             <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground text-sm md:text-base">Score:</span>
-                <span className="font-bold text-foreground text-sm md:text-base">{score}%</span>
+                <span className="text-muted-foreground text-sm md:text-base">
+                  Score:
+                </span>
+                <span className="font-bold text-foreground text-sm md:text-base">
+                  {score}%
+                </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground text-sm md:text-base">XP Earned:</span>
-                <span className="font-bold text-blue-500 text-sm md:text-base">+{xpGained} XP</span>
+                <span className="text-muted-foreground text-sm md:text-base">
+                  XP Earned:
+                </span>
+                <span className="font-bold text-blue-500 text-sm md:text-base">
+                  +{xpGained} XP
+                </span>
               </div>
               {leveledUp && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
                   <div className="flex items-center gap-2 text-yellow-400">
                     <Star className="w-4 h-4 md:w-5 md:h-5" />
-                    <span className="font-semibold text-sm md:text-base">Level Up!</span>
+                    <span className="font-semibold text-sm md:text-base">
+                      Level Up!
+                    </span>
                   </div>
                 </div>
               )}
@@ -289,7 +299,10 @@ export default function LessonPage() {
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="font-medium text-xs md:text-sm flex-shrink-0 ml-2">
+          <Badge
+            variant="outline"
+            className="font-medium text-xs md:text-sm flex-shrink-0 ml-2"
+          >
             <span className="hidden sm:inline">Lesson </span>
             <span className="sm:hidden">L</span>
             {lesson.id}
@@ -357,7 +370,10 @@ export default function LessonPage() {
                           <span className="text-lg md:text-xl font-bold text-foreground flex-1">
                             {phrase.tagalog}
                           </span>
-                          <SoundButton text={phrase.tagalog} className="flex-shrink-0" />
+                          <SoundButton
+                            text={phrase.tagalog}
+                            className="flex-shrink-0"
+                          />
                         </div>
                         <p className="text-muted-foreground mb-1 text-sm md:text-base">
                           {phrase.english}

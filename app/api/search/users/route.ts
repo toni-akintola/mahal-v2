@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { users, friendships } from "@/lib/db/schema";
+import { eq, or, and, notInArray, ilike, desc } from "drizzle-orm";
 import { UserService } from "@/lib/services/user-service";
 
 export async function GET(request: NextRequest) {
@@ -24,16 +26,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Get existing friend relationships to exclude
-    const existingFriendships = await db.friendship.findMany({
-      where: {
-        OR: [{ userId: currentUser.id }, { friendId: currentUser.id }],
-      },
-      select: {
-        userId: true,
-        friendId: true,
-        status: true,
-      },
-    });
+    const existingFriendships = await db
+      .select({
+        userId: friendships.userId,
+        friendId: friendships.friendId,
+        status: friendships.status,
+      })
+      .from(friendships)
+      .where(
+        or(
+          eq(friendships.userId, currentUser.id),
+          eq(friendships.friendId, currentUser.id),
+        ),
+      );
 
     const excludeUserIds = new Set([currentUser.id]);
     existingFriendships.forEach((friendship) => {
@@ -45,33 +50,35 @@ export async function GET(request: NextRequest) {
     });
 
     // Search for users
-    const users = await db.user.findMany({
-      where: {
-        id: { notIn: Array.from(excludeUserIds) },
-        OR: [
-          { displayName: { contains: query, mode: "insensitive" } },
-          { firstName: { contains: query, mode: "insensitive" } },
-          { lastName: { contains: query, mode: "insensitive" } },
-          { email: { contains: query, mode: "insensitive" } },
-        ],
-      },
-      select: {
-        id: true,
-        clerkUserId: true,
-        displayName: true,
-        firstName: true,
-        lastName: true,
-        imageUrl: true,
-        level: true,
-        currentStreak: true,
-        lastActiveAt: true,
-      },
-      take: 10,
-      orderBy: [{ level: "desc" }, { totalXp: "desc" }],
-    });
+    const searchResults = await db
+      .select({
+        id: users.id,
+        clerkUserId: users.clerkUserId,
+        displayName: users.displayName,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        imageUrl: users.imageUrl,
+        level: users.level,
+        currentStreak: users.currentStreak,
+        lastActiveAt: users.lastActiveAt,
+      })
+      .from(users)
+      .where(
+        and(
+          notInArray(users.id, Array.from(excludeUserIds)),
+          or(
+            ilike(users.displayName, `%${query}%`),
+            ilike(users.firstName, `%${query}%`),
+            ilike(users.lastName, `%${query}%`),
+            ilike(users.email, `%${query}%`),
+          ),
+        ),
+      )
+      .orderBy(desc(users.level), desc(users.totalXp))
+      .limit(10);
 
     return NextResponse.json({
-      users: users.map((user) => ({
+      users: searchResults.map((user) => ({
         ...user,
         status: getOnlineStatus(user.lastActiveAt),
       })),

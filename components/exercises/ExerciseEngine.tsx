@@ -279,11 +279,18 @@ export function ExerciseEngine({
       <div className="bg-card border-b border-border px-4 py-3 md:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-            <GameButton variant="ghost" onClick={onExit} className="p-1.5 md:p-2 flex-shrink-0">
+            <GameButton
+              variant="ghost"
+              onClick={onExit}
+              className="p-1.5 md:p-2 flex-shrink-0"
+            >
               <ArrowRight className="w-4 h-4 md:w-5 md:h-5 rotate-180" />
             </GameButton>
             <div className="flex-1 min-w-0">
-              <Progress value={progress} className="h-2 md:h-3 w-full max-w-64" />
+              <Progress
+                value={progress}
+                className="h-2 md:h-3 w-full max-w-64"
+              />
               <p className="text-xs md:text-sm text-muted-foreground mt-1">
                 {currentExerciseIndex + 1} of {exercises.length}
               </p>
@@ -292,7 +299,9 @@ export function ExerciseEngine({
 
           <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <div className="flex items-center gap-1 md:gap-2">
-              <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">Lives:</span>
+              <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">
+                Lives:
+              </span>
               {[...Array(2)].map((_, i) => (
                 <Heart
                   key={i}
@@ -322,13 +331,19 @@ export function ExerciseEngine({
           <GameCardHeader>
             <GameCardTitle className="flex items-center justify-between text-sm md:text-base">
               <span className="capitalize">
-                <span className="hidden sm:inline">{currentExercise.type} Exercise</span>
+                <span className="hidden sm:inline">
+                  {currentExercise.type} Exercise
+                </span>
                 <span className="sm:hidden">{currentExercise.type}</span>
               </span>
-              <Badge variant="outline" className="text-xs">{currentExercise.xp} XP</Badge>
+              <Badge variant="outline" className="text-xs">
+                {currentExercise.xp} XP
+              </Badge>
             </GameCardTitle>
           </GameCardHeader>
-          <GameCardContent className="p-4 md:p-8">{renderExercise()}</GameCardContent>
+          <GameCardContent className="p-4 md:p-8">
+            {renderExercise()}
+          </GameCardContent>
         </GameCard>
       </div>
 
@@ -339,7 +354,9 @@ export function ExerciseEngine({
             <div className="w-12 h-12 md:w-16 md:h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
               <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <DialogTitle className="text-lg md:text-xl">Exercise Failed</DialogTitle>
+            <DialogTitle className="text-lg md:text-xl">
+              Exercise Failed
+            </DialogTitle>
             <DialogDescription className="text-sm md:text-base">
               You&apos;ve run out of lives! Don&apos;t worry - practice makes
               perfect. Review the lesson material and try again when you&apos;re
