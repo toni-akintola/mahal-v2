@@ -84,7 +84,7 @@ export function ListeningExercise({
               onClick={handlePlayAudio}
               disabled={ttsLoading || isPlaying || !canPlayAgain}
               variant="primary"
-              className="px-6 py-3"
+              className="px-6 py-3 flex items-center justify-center"
             >
               {ttsLoading
                 ? "Generating Audio..."

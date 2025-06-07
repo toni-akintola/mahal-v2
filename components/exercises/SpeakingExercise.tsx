@@ -232,7 +232,7 @@ export function SpeakingExercise({
               onClick={isRecording ? stopRecording : startRecording}
               disabled={submitted || isProcessing}
               variant={isRecording ? "destructive" : "primary"}
-              className="px-6 py-3 min-w-[160px]"
+              className="px-6 py-3 min-w-[160px] flex items-center justify-center"
             >
               {isProcessing ? (
                 <>
