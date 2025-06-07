@@ -103,6 +103,7 @@ export default function LessonPage() {
               : null,
           );
         } else {
+
           setLesson(userLesson as LessonWithProgress);
         }
       } catch (error) {
@@ -610,49 +611,55 @@ export default function LessonPage() {
                     <GameCardTitle>Exercise Breakdown</GameCardTitle>
                   </GameCardHeader>
                   <GameCardContent className="space-y-3">
-                    {lesson.exercises.map((exercise, index) => (
-                      <div
-                        key={index}
-                        className={`flex justify-between items-center p-3 rounded-xl ${
-                          index < lesson.currentExerciseIndex
-                            ? "bg-green-500/10 border border-green-500/30"
-                            : index === lesson.currentExerciseIndex &&
-                                lesson.currentExerciseIndex <
-                                  lesson.exercises.length
-                              ? "bg-blue-500/10 border border-blue-500/30"
-                              : "bg-muted/30"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              index < lesson.currentExerciseIndex
-                                ? "bg-green-500 text-white"
-                                : index === lesson.currentExerciseIndex &&
-                                    lesson.currentExerciseIndex <
-                                      lesson.exercises.length
-                                  ? "bg-blue-500 text-white"
-                                  : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {index < lesson.currentExerciseIndex
-                              ? "✓"
-                              : index + 1}
+                    {lesson.exercises.map((exercise, index) => {
+                      // If lesson is completed, all exercises are completed
+                      const isCompleted =
+                        lesson.completed || index < lesson.currentExerciseIndex;
+                      const isCurrent =
+                        !lesson.completed &&
+                        index === lesson.currentExerciseIndex &&
+                        lesson.currentExerciseIndex < lesson.exercises.length;
+
+                      return (
+                        <div
+                          key={index}
+                          className={`flex justify-between items-center p-3 rounded-xl ${
+                            isCompleted
+                              ? "bg-green-500/10 border border-green-500/30"
+                              : isCurrent
+                                ? "bg-blue-500/10 border border-blue-500/30"
+                                : "bg-muted/30"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                isCompleted
+                                  ? "bg-green-500 text-white"
+                                  : isCurrent
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {isCompleted ? "✓" : index + 1}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground capitalize">
+                                {exercise.type
+                                  .replace(/([A-Z])/g, " $1")
+                                  .trim()}
+                              </span>
+                              <p className="text-sm text-muted-foreground truncate max-w-48">
+                                {exercise.question}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <span className="font-medium text-foreground capitalize">
-                              {exercise.type.replace(/([A-Z])/g, " $1").trim()}
-                            </span>
-                            <p className="text-sm text-muted-foreground truncate max-w-48">
-                              {exercise.question}
-                            </p>
-                          </div>
+                          <Badge variant="outline" className="ml-2">
+                            {exercise.xp} XP
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="ml-2">
-                          {exercise.xp} XP
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </GameCardContent>
                 </GameCard>
               </div>

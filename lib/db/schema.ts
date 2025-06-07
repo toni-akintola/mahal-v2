@@ -71,9 +71,6 @@ export const userLessonProgress = pgTable(
 
     status: text("status").notNull().default("pending"), // pending, in_progress, completed
     progressPercentage: integer("progress_percentage").notNull().default(0),
-    currentExerciseIndex: integer("current_exercise_index")
-      .notNull()
-      .default(0), // Track which exercise to resume from
     attempts: integer("attempts").notNull().default(0),
     bestScore: integer("best_score"),
     totalTimeSpent: integer("total_time_spent").notNull().default(0), // in seconds

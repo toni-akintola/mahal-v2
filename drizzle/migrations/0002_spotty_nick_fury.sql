@@ -1,0 +1,1 @@
+ALTER TABLE "user_lesson_progress" DROP COLUMN "current_exercise_index";

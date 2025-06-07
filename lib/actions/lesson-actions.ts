@@ -15,7 +15,6 @@ interface UserLessonProgress {
   lessonId: string;
   status: string;
   progressPercentage: number;
-  currentExerciseIndex: number;
   attempts: number;
   bestScore: number | null;
   totalTimeSpent: number;
@@ -71,21 +70,42 @@ export async function getUserLessons() {
     const availableLessons = lessons.slice(startIndex);
 
     // Combine static lesson data with user progress
-    return availableLessons.map((lesson) => {
+    const result = availableLessons.map((lesson) => {
       const progress = progressMap.get(lesson.id.toString()) as
         | UserLessonProgress
         | undefined;
-      return {
+
+      // Calculate current exercise index from progress percentage
+      const progressPercentage = progress?.progressPercentage || 0;
+      const totalExercises = lesson.exercises.length;
+      let currentExerciseIndex = 0;
+
+      if (progressPercentage > 0 && totalExercises > 0) {
+        // Convert percentage back to exercise index
+        // If progress is 20% and there are 5 exercises, user completed 1 exercise, so they should start exercise 1 (0-indexed)
+        const completedExercises = Math.floor(
+          (progressPercentage / 100) * totalExercises,
+        );
+        currentExerciseIndex = Math.min(completedExercises, totalExercises - 1);
+      }
+
+      const lessonWithProgress = {
         ...lesson,
         completed: progress?.status === "completed",
-        progress: progress?.progressPercentage || 0,
-        currentExerciseIndex: progress?.currentExerciseIndex || 0,
+        progress: progressPercentage,
+        currentExerciseIndex,
         bestScore: progress?.bestScore || 0,
         attempts: progress?.attempts || 0,
         startedAt: progress?.startedAt,
         completedAt: progress?.completedAt,
       };
+
+
+
+      return lessonWithProgress;
     });
+
+    return result;
   } catch (error) {
     console.error("Error fetching user lessons:", error);
     throw error;
@@ -186,12 +206,10 @@ export async function updateExerciseProgress(
 
     // Calculate progress percentage if we have exercise info
     let progressPercentage = 0;
-    let currentExerciseIndex = 0;
     if (exerciseIndex !== undefined && totalExercises !== undefined) {
       progressPercentage = Math.round(
         ((exerciseIndex + 1) / totalExercises) * 100,
       );
-      currentExerciseIndex = exerciseIndex;
     }
 
     let progressResult;
@@ -205,7 +223,6 @@ export async function updateExerciseProgress(
           lessonId: lessonId,
           status: "in_progress",
           progressPercentage: progressPercentage,
-          currentExerciseIndex: currentExerciseIndex,
           startedAt: new Date(),
           attempts: 1,
           updatedAt: new Date(),
@@ -222,16 +239,12 @@ export async function updateExerciseProgress(
             progress[0].progressPercentage || 0,
             progressPercentage,
           ),
-          currentExerciseIndex: Math.max(
-            progress[0].currentExerciseIndex || 0,
-            currentExerciseIndex,
-          ),
           status: "in_progress",
           updatedAt: new Date(),
         })
         .where(eq(userLessonProgress.id, progress[0].id))
         .returning();
-      progressResult = updatedProgress[0];
+            progressResult = updatedProgress[0];
     }
 
     // Update daily stats with XP

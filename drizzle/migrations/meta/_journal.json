@@ -15,6 +15,13 @@
       "when": 1749276990897,
       "tag": "0001_magenta_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1749277880216,
+      "tag": "0002_spotty_nick_fury",
+      "breakpoints": true
     }
   ]
 }
