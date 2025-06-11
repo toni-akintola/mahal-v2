@@ -39,6 +39,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
   lastXpGainedAt: timestamp("last_xp_gained_at"),
+  lastStreakUpdatedAt: timestamp("last_streak_updated_at"),
 });
 
 // Lesson structure

@@ -42,6 +42,9 @@ export const users = pgTable(
       .defaultNow()
       .notNull(),
     lastXpGainedAt: timestamp("last_xp_gained_at", { mode: "string" }),
+    lastStreakUpdatedAt: timestamp("last_streak_updated_at", {
+      mode: "string",
+    }),
   },
   (table) => [unique("users_clerk_user_id_unique").on(table.clerkUserId)],
 );

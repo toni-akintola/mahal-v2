@@ -59,7 +59,6 @@ export function ExerciseEngine({
   onComplete,
   onExit,
 }: ExerciseEngineProps) {
-    
   const [currentExerciseIndex, setCurrentExerciseIndex] =
     useState(startExerciseIndex);
   const [results, setResults] = useState<ExerciseResult[]>([]);
@@ -109,7 +108,6 @@ export function ExerciseEngine({
 
       // Update progress and XP in real-time
       try {
-                
         await updateExerciseProgress(
           lessonId,
           xp,

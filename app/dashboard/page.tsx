@@ -1,9 +1,9 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import Link from "next/link";
 import {
   GameCard,
@@ -51,6 +51,9 @@ import {
   Lightbulb,
   Volume2,
   Settings,
+  LogOut,
+  ChevronDown,
+  User,
 } from "lucide-react";
 import { SocialDashboard } from "@/components/social/SocialDashboard";
 import { UserSettingsModal } from "@/components/ui/UserSettingsModal";
@@ -213,12 +216,24 @@ export default function MahalDashboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const router = useRouter();
   const { isSignedIn } = useUser();
+  const { signOut } = useClerk();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const startLesson = (lesson: UserLesson) => {
     router.push(`/lesson/${lesson.id}`);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   useEffect(() => {
@@ -248,6 +263,26 @@ export default function MahalDashboard() {
 
     checkOnboarding();
   }, [isSignedIn, router]);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showUserMenu]);
 
   const loadDashboardData = async () => {
     try {
@@ -348,6 +383,59 @@ export default function MahalDashboard() {
             >
               <Settings className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground hover:text-foreground" />
             </button>
+
+            {/* User Menu */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-1 p-2 hover:bg-muted rounded-lg transition-colors"
+                title="User menu"
+              >
+                <ClerkAvatar
+                  clerkUserId={userStats.user.clerkUserId}
+                  displayName={userStats.user.displayName || "User"}
+                  className="w-6 h-6 md:w-8 md:h-8"
+                />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50">
+                  <div className="py-1">
+                    <div className="px-3 py-2 border-b border-border">
+                      <p className="text-sm font-medium text-foreground">
+                        {userStats.user.displayName || "User"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Level {userStats.user.level} • {userStats.user.totalXp}{" "}
+                        XP
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowSettings(true);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                    >
+                      <User className="w-4 h-4" />
+                      Settings
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleSignOut();
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2 text-red-600 hover:text-red-700"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

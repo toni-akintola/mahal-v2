@@ -100,8 +100,6 @@ export async function getUserLessons() {
         completedAt: progress?.completedAt,
       };
 
-
-
       return lessonWithProgress;
     });
 
@@ -244,7 +242,7 @@ export async function updateExerciseProgress(
         })
         .where(eq(userLessonProgress.id, progress[0].id))
         .returning();
-            progressResult = updatedProgress[0];
+      progressResult = updatedProgress[0];
     }
 
     // Update daily stats with XP

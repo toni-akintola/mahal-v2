@@ -103,7 +103,6 @@ export default function LessonPage() {
               : null,
           );
         } else {
-
           setLesson(userLesson as LessonWithProgress);
         }
       } catch (error) {

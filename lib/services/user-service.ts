@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/index";
-import { users, dailyStats, friendships } from "@/lib/db/schema";
+import { users, friendships } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { nanoid } from "nanoid";
@@ -100,16 +100,53 @@ export class UserService {
     const user = userResult[0];
     const newTotalXp = user.totalXp + xpGained;
     const newLevel = Math.floor(newTotalXp / 100) + 1; // 100 XP per level
+    const now = new Date();
+
+    // Update streak based on lastStreakUpdatedAt timing
+    let newStreak = user.currentStreak;
+    let shouldUpdateStreakTimestamp = false;
+
+    if (!user.lastStreakUpdatedAt) {
+      // First time updating streak
+      newStreak = 1;
+      shouldUpdateStreakTimestamp = true;
+    } else {
+      const timeSinceLastStreakUpdate =
+        now.getTime() - new Date(user.lastStreakUpdatedAt).getTime();
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+
+      if (timeSinceLastStreakUpdate > twentyFourHours) {
+        // More than 24 hours since last streak update - reset to 1
+        newStreak = 1;
+        shouldUpdateStreakTimestamp = true;
+      } else if (timeSinceLastStreakUpdate >= twentyFourHours * 0.8) {
+        // Between 19.2 and 24 hours since last streak update - increment
+        newStreak = user.currentStreak + 1;
+        shouldUpdateStreakTimestamp = true;
+      }
+      // If less than 19.2 hours since last streak update, keep current streak
+    }
+
+    const newLongestStreak = Math.max(user.longestStreak, newStreak);
+
+    const updateData: any = {
+      totalXp: newTotalXp,
+      level: newLevel,
+      currentStreak: newStreak,
+      longestStreak: newLongestStreak,
+      lastXpGainedAt: now,
+      lastActiveAt: now,
+      updatedAt: now,
+    };
+
+    // Only update lastStreakUpdatedAt if streak actually changed
+    if (shouldUpdateStreakTimestamp) {
+      updateData.lastStreakUpdatedAt = now;
+    }
 
     const result = await db
       .update(users)
-      .set({
-        totalXp: newTotalXp,
-        level: newLevel,
-        lastXpGainedAt: new Date(),
-        lastActiveAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(users.clerkUserId, clerkUserId))
       .returning();
 
@@ -173,80 +210,23 @@ export class UserService {
     return result[0] as User;
   }
 
-  // Update streak with daily stats logic (for lesson completion)
+  // Update streak with 24-hour timing logic (deprecated - use updateUserXP instead)
   static async updateStreakOnXpGain(clerkUserId: string): Promise<User> {
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, clerkUserId))
-      .limit(1);
-
-    if (userResult.length === 0) {
-      throw new Error("User not found");
-    }
-
-    const user = userResult[0];
-
-    // Check if user was active yesterday
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const yesterdayStatsResult = await db
-      .select()
-      .from(dailyStats)
-      .where(
-        and(
-          eq(dailyStats.userId, user.id),
-          eq(dailyStats.date, yesterday.toISOString().split("T")[0]),
-        ),
-      )
-      .limit(1);
-
-    const yesterdayStats =
-      yesterdayStatsResult.length > 0 ? yesterdayStatsResult[0] : null;
-
-    // Check today's activity (before this action)
-    const todayStatsResult = await db
-      .select()
-      .from(dailyStats)
-      .where(
-        and(
-          eq(dailyStats.userId, user.id),
-          eq(dailyStats.date, today.toISOString().split("T")[0]),
-        ),
-      )
-      .limit(1);
-
-    const todayStats = todayStatsResult.length > 0 ? todayStatsResult[0] : null;
-
-    let newStreak = 1;
-    if (todayStats && todayStats.xpEarned > 0) {
-      // Already gained XP today, keep current streak
-      newStreak = user.currentStreak;
-    } else if (yesterdayStats && yesterdayStats.xpEarned > 0) {
-      // Gained XP yesterday, increment streak
-      newStreak = user.currentStreak + 1;
-    } else {
-      // First XP in streak or broke streak
-      newStreak = 1;
-    }
-
-    const longestStreak = Math.max(user.longestStreak, newStreak);
-
+    // This method is now deprecated in favor of the streak logic built into updateUserXP
+    // Keeping for backward compatibility but just updating lastActiveAt
+    const now = new Date();
     const result = await db
       .update(users)
       .set({
-        currentStreak: newStreak,
-        longestStreak,
-        lastActiveAt: new Date(),
-        lastXpGainedAt: new Date(),
-        updatedAt: new Date(),
+        lastActiveAt: now,
+        updatedAt: now,
       })
       .where(eq(users.clerkUserId, clerkUserId))
       .returning();
+
+    if (result.length === 0) {
+      throw new Error("User not found");
+    }
 
     return result[0] as User;
   }

@@ -269,21 +269,10 @@ export async function completeLesson(lessonId: string, score: number) {
       });
     }
 
-    // Check and update streak using the new service method
-    const updatedUser = await UserService.updateStreakOnXpGain(userId);
-
-    // Update user XP and level
-    const newTotalXp = updatedUser.totalXp + xpGained;
-    const newLevel = Math.floor(newTotalXp / 100) + 1;
-
-    await db
-      .update(users)
-      .set({
-        totalXp: newTotalXp,
-        level: newLevel,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, user.id));
+    // Update user XP, level, and streak in one call
+    const updatedUser = await UserService.updateUserXP(userId, xpGained);
+    const newTotalXp = updatedUser.totalXp;
+    const newLevel = updatedUser.level;
 
     // Update daily stats
     const today = new Date();

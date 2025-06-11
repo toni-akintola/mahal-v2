@@ -1,6 +1,6 @@
 {
-  "id": "bae6e99a-e044-4299-aa45-ccbd5be79e2a",
-  "prevId": "9850a022-ea73-4563-b01e-9d7ac3c34823",
+  "id": "9d868025-38ca-4d43-bf04-dc3b6b31ac9d",
+  "prevId": "bae6e99a-e044-4299-aa45-ccbd5be79e2a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -718,6 +718,12 @@
         },
         "last_xp_gained_at": {
           "name": "last_xp_gained_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_streak_updated_at": {
+          "name": "last_streak_updated_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
