@@ -129,7 +129,7 @@ export class UserService {
 
     const newLongestStreak = Math.max(user.longestStreak, newStreak);
 
-    const updateData: any = {
+    const updateData: Partial<User> & { lastStreakUpdatedAt?: Date } = {
       totalXp: newTotalXp,
       level: newLevel,
       currentStreak: newStreak,
