@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react";
 
 const notoSans = Noto_Sans({
   variable: "--font-noto-sans",
@@ -22,6 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
+      <Analytics />
       <html lang="en">
         <body className={`${notoSans.variable} font-sans antialiased`}>
           {children}
